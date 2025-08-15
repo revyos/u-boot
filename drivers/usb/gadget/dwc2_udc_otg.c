@@ -463,18 +463,46 @@ static void reconfig_usbd(struct dwc2_udc *dev)
 {
 	/* 2. Soft-reset OTG Core and then unreset again. */
 	int i;
-	unsigned int uTemp = writel(CORE_SOFT_RESET, &reg->grstctl);
+	unsigned int uTemp = 0;
+
 	uint32_t dflt_gusbcfg;
 	uint32_t rx_fifo_sz, tx_fifo_sz, np_tx_fifo_sz;
 	u32 max_hw_ep;
 	int pdata_hw_ep;
+	unsigned int gsnpsid;
+
+	/* The GSNPSID register read must before soft reset*/
+	gsnpsid = readl(&reg->gsnpsid);
+
+	uTemp = readl(&reg->grstctl);
+	uTemp = uTemp | CORE_SOFT_RESET;
+	writel(uTemp, &reg->grstctl);
+
+	if ((gsnpsid & DWC2_CORE_REV_MASK) >=
+		(DWC2_CORE_REV_4_20a & DWC2_CORE_REV_MASK)) {
+		while(1) {
+			if (readl(&reg->grstctl) & CORE_SOFT_RESET_DONE)
+				break;
+			udelay(1);
+		}
+
+		uTemp = readl(&reg->grstctl);
+		uTemp &= ~CORE_SOFT_RESET;
+		uTemp |= CORE_SOFT_RESET_DONE;
+		writel(uTemp, &reg->grstctl);
+	}
 
 	debug("Resetting OTG controller\n");
 
 	dflt_gusbcfg =
-		0<<15		/* PHY Low Power Clock sel*/
+		1<<30		/* ForceDevMode*/
+		|0<<15		/* PHY Low Power Clock sel*/
 		|1<<14		/* Non-Periodic TxFIFO Rewind Enable*/
-		|0x5<<10	/* Turnaround time*/
+#ifdef CONFIG_USB_GADGET_DWC2_OTG_PHY_BUS_WIDTH_8		
+		|0x9<<10	/* Turnaround time (0x9:TURNTIME8BIT)*/
+#else
+		|0x5<<10	/* Turnaround time (0x5;TURNTIME16BIT)*/
+#endif
 		|0<<9 | 0<<8	/* [0:HNP disable,1:HNP enable][ 0:SRP disable*/
 				/* 1:SRP enable] H1= 1,1*/
 		|0<<7		/* Ulpi DDR sel*/
@@ -857,7 +885,11 @@ static struct dwc2_udc memory = {
 		.bmAttributes = USB_ENDPOINT_XFER_BULK,
 
 		.ep_type = ep_bulk_out,
+#ifdef CONFIG_TARGET_P100_EVB
+		.fifo_num = 0,
+#else
 		.fifo_num = 1,
+#endif
 	},
 
 	.ep[2] = {

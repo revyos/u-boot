@@ -385,6 +385,12 @@ static int initr_onenand(void)
 #ifdef CONFIG_MMC
 static int initr_mmc(void)
 {
+#ifdef CONFIG_OF_CONTROL
+	if (ofnode_conf_read_int("init-mmc", 1) == 0) {
+		return 0;
+	}
+#endif
+
 	puts("MMC:   ");
 	mmc_initialize(gd->bd);
 	return 0;

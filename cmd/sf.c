@@ -577,6 +577,84 @@ static int do_spi_flash_test(int argc, char *const argv[])
 	return 0;
 }
 
+#define SPIFLAH_DEF_SECTOR_SIZE  0x1000
+
+static int spi_flash_erase_test(struct spi_flash *flash, ulong len, ulong offset)
+{
+	int i;
+	uint8_t *vbuf;
+	unsigned int err_cnt = 0;
+	unsigned long off = offset;
+	unsigned long end = offset + len;
+
+	printf("SPI flash erase test:\n");
+
+	if (spi_flash_erase(flash, off, len)) {
+		printf("Erase failed\n");
+		return -1;
+	}
+
+	vbuf = memalign(ARCH_DMA_MINALIGN, SPIFLAH_DEF_SECTOR_SIZE);
+	if (!vbuf) {
+		printf("Cannot allocate memory (%lu bytes)\n", len);
+		return 1;
+	}
+
+	while(off < end) {
+		if (spi_flash_read(flash, off, SPIFLAH_DEF_SECTOR_SIZE, vbuf)) {
+			printf("Check read failed\n");
+			free(vbuf);
+			return -1;
+		}
+		for (i = 0; i < SPIFLAH_DEF_SECTOR_SIZE; i++) {
+			if (vbuf[i] != 0xff) {
+				err_cnt++;
+				printf("Check failed at 0x%lx\n", off + i);
+				print_buffer(off + i, vbuf + i, 1,
+						min_t(uint, len - i, 0x40), 0);
+				break;
+			}
+		}
+		off += SPIFLAH_DEF_SECTOR_SIZE;
+		memset(vbuf, 0x0, SPIFLAH_DEF_SECTOR_SIZE);
+	}
+
+	if (err_cnt) {
+		printf("%s failed %d times.\n", __func__, err_cnt);
+	} else {
+		printf("%s 0x%lx OK.\n", __func__, len);
+	}
+
+	free(vbuf);
+	return 0;
+}
+
+static int do_spi_flash_erase_test(int argc, char * const argv[])
+{
+	unsigned long offset;
+	unsigned long len;
+	char *endp;
+	int ret;
+
+	if (argc < 3)
+		return -1;
+	offset = simple_strtoul(argv[1], &endp, 16);
+	if (*argv[1] == 0 || *endp != 0)
+		return -1;
+	len = simple_strtoul(argv[2], &endp, 16);
+	if (*argv[2] == 0 || *endp != 0)
+		return -1;
+
+	ret = spi_flash_erase_test(flash, len, offset);
+	if (ret) {
+		printf("Test failed\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+
 static int do_spi_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 			char *const argv[])
 {
@@ -609,6 +687,8 @@ static int do_spi_flash(struct cmd_tbl *cmdtp, int flag, int argc,
 		ret = do_spi_protect(argc, argv);
 	else if (IS_ENABLED(CONFIG_CMD_SF_TEST) && !strcmp(cmd, "test"))
 		ret = do_spi_flash_test(argc, argv);
+	else if (IS_ENABLED(CONFIG_CMD_SF_TEST) && !strcmp(cmd, "erase_test"))
+		ret = do_spi_flash_erase_test(argc, argv);
 	else
 		ret = CMD_RET_USAGE;
 
@@ -636,6 +716,7 @@ U_BOOT_LONGHELP(sf,
 #endif
 #ifdef CONFIG_CMD_SF_TEST
 	"\nsf test offset len		- run a very basic destructive test"
+	"\nsf erase_test offset len	- run a very basic erase test"
 #endif
 	);
 

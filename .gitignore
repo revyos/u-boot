@@ -7,7 +7,6 @@
 #
 .*
 !.checkpatch.conf
-*.a
 *.asn1.[ch]
 *.bin
 *.bin[_.]*
@@ -75,6 +74,8 @@ fit-dtb.blob*
 /keep-syms-lto.*
 /*imx8mimage*
 /*imx8mcst*
+/fw_env.config
+tools/env/lib.a
 
 #
 # Generated include files
@@ -128,3 +129,6 @@ __pycache__
 
 # Clang's compilation database file
 /compile_commands.json
+
+# conan build json file
+conanbuildinfo.json

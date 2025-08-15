@@ -118,7 +118,12 @@ int do_booti(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		bmi.conf_fdt = argv[2];
 	bmi.boot_progress = true;
 	bmi.cmd_name = "booti";
-	/* do not set up argc and argv[] since nothing uses them */
+
+	/* set up argc and argv[] since some OSes use them */
+	if (argc > 3) {
+		bmi.argc = argc;
+		bmi.argv = argv;
+	}
 
 	if (booti_start(&bmi))
 		return 1;

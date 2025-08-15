@@ -10,6 +10,7 @@
 #include <fastboot-internal.h>
 #include <fb_mmc.h>
 #include <fb_nand.h>
+#include <fb_nor.h>
 #include <part.h>
 #include <stdlib.h>
 #include <vsprintf.h>
@@ -343,6 +344,11 @@ static void __maybe_unused flash(char *cmd_parameter, char *response)
 	if (IS_ENABLED(CONFIG_FASTBOOT_FLASH_NAND))
 		fastboot_nand_flash_write(cmd_parameter, fastboot_buf_addr,
 					  image_size, response);
+
+	if (IS_ENABLED(CONFIG_FASTBOOT_FLASH_NOR))
+		fastboot_nor_flash_write(cmd_parameter, fastboot_buf_addr,
+					  image_size, response);
+
 }
 
 /**
@@ -361,6 +367,9 @@ static void __maybe_unused erase(char *cmd_parameter, char *response)
 
 	if (IS_ENABLED(CONFIG_FASTBOOT_FLASH_NAND))
 		fastboot_nand_erase(cmd_parameter, response);
+
+	if (IS_ENABLED(CONFIG_FASTBOOT_FLASH_NOR))
+		fastboot_nor_erase(cmd_parameter, response);
 }
 
 /**

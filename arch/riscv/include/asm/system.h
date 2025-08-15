@@ -11,6 +11,11 @@
 
 struct event;
 
+#define wfi()                           \
+        ({asm volatile(                 \
+        "wfi" : : : "memory");          \
+        })
+
 /*
  * Interupt configuration macros
  */

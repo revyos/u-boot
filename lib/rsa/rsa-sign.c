@@ -459,10 +459,135 @@ err_alloc:
 	return ret;
 }
 
+const char hex_asc[] = "0123456789abcdef";
+#define hex_asc_lo(x)	hex_asc[((x) & 0x0f)]
+#define hex_asc_hi(x)	hex_asc[((x) & 0xf0) >> 4]
+
+static inline int hex_to_bin(char ch)
+{
+	if ((ch >= '0') && (ch <= '9'))
+		return ch - '0';
+	ch = tolower(ch);
+	if ((ch >= 'a') && (ch <= 'f'))
+		return ch - 'a' + 10;
+	return -1;
+}
+
+/**
+ * hex2bin - convert an ascii hexadecimal string to its binary representation
+ * @dst: binary result
+ * @src: ascii hexadecimal string
+ * @count: result length
+ *
+ * Return 0 on success, -1 in case of bad input.
+ */
+static inline int hex2bin(uint8_t *dst, const char *src, size_t count)
+{
+	while (count--) {
+		int hi = hex_to_bin(*src++);
+		int lo = hex_to_bin(*src++);
+
+		if ((hi < 0) || (lo < 0))
+			return -1;
+
+		*dst++ = (hi << 4) | lo;
+	}
+	return 0;
+}
+
+static inline char *hex_byte_pack(char *buf, uint8_t byte)
+{
+	*buf++ = hex_asc_hi(byte);
+	*buf++ = hex_asc_lo(byte);
+	return buf;
+}
+
+/**
+ * bin2hex - convert binary data to an ascii hexadecimal string
+ * @dst: ascii hexadecimal result
+ * @src: binary data
+ * @count: binary data length
+ */
+static inline char *bin2hex(char *dst, const void *src, size_t count)
+{
+	const unsigned char *_src = src;
+
+	while (count--)
+		dst = hex_byte_pack(dst, *_src++);
+	return dst;
+}
+
+static int external_rsa_sign(struct image_sign_info *info,
+		 const struct image_region region[], int region_count,
+		 uint8_t **sigp, uint *sig_len, char* sign_cmd)
+{
+	int ret;
+	uint8_t hash[info->checksum->checksum_len];
+	char hash_str[info->checksum->checksum_len * 2 + 1];
+	char buffer[info->crypto->key_len*2 + 1];
+	size_t size =info->crypto->key_len;
+	uint8_t *sign_data = malloc(info->crypto->key_len);
+	FILE *fp;
+
+	/* Calculate checksum with checksum-algorithm */
+	if (info->checksum->checksum_len > info->crypto->key_len) {
+		debug("%s: invalid checksum-algorithm %s for %s\n", __func__, info->checksum->name, info->crypto->name);
+		return -EINVAL;
+	}
+	ret = info->checksum->calculate(info->checksum->name, region, region_count, hash);
+	if (ret < 0) {
+		debug("%s: Error in checksum calculation\n", __func__);
+		return -EINVAL;
+	}
+
+	/* send hash value to signature server*/
+	bin2hex(hash_str, hash, info->checksum->checksum_len);
+	hash_str[info->checksum->checksum_len*2] = '\n';
+
+	char cmd[1024];
+	sprintf(cmd, "%s --sign-algo %s --key-name %s --hash-value %s", 
+			sign_cmd, info->crypto->name, info->keyname, hash_str);
+
+	fp = popen(cmd, "r");
+	if(fp == NULL) {
+		debug("%s: Error in exec cmd: %s\n", __func__, cmd);
+		return -EINVAL;
+	}
+
+	ret = -EINVAL;
+	if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		/* read first line*/
+		if(memcmp(buffer, "Signature OK", strlen("Signature OK")) == 0) {
+			memset(buffer, 0, sizeof(buffer));
+			/* read signature value*/
+			if (fgets(buffer, sizeof(buffer), fp) != NULL) {
+				if(strlen(buffer) == size * 2) {
+					/* set signature data value*/
+					hex2bin(sign_data, buffer, size);
+					*sigp = sign_data;
+					*sig_len = size;
+					ret = 0;
+				}
+			}
+		}
+	}
+	if (ret) {
+		debug("%s: Signature failed, cmd: %s.\n", __func__, cmd);
+	}
+
+	fclose(fp);
+	return ret;
+}
+
 int rsa_sign(struct image_sign_info *info,
 	     const struct image_region region[], int region_count,
 	     uint8_t **sigp, uint *sig_len)
 {
+	char *sign_cmd = getenv("SIGN_CMD_LINE");
+	if (sign_cmd) {
+		return external_rsa_sign(info, region, region_count, sigp, sig_len, sign_cmd);
+	}
+
 	EVP_PKEY *pkey = NULL;
 	ENGINE *e = NULL;
 	int ret;

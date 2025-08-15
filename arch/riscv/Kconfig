@@ -46,6 +46,14 @@ config TARGET_TH1520_LPI4A
 config TARGET_XILINX_MBV
 	bool "Support AMD/Xilinx MicroBlaze V"
 
+config TARGET_P100_EVB
+	bool "Support ZhiHe EVB Board"
+	select SYS_CACHE_SHIFT_6
+
+config TARGET_A200_EVB
+	bool "Support ZhiHe A200 EVB Board"
+	select SYS_CACHE_SHIFT_6
+
 endchoice
 
 config SYS_ICACHE_OFF
@@ -91,6 +99,8 @@ source "board/sophgo/milkv_duo/Kconfig"
 source "board/starfive/visionfive2/Kconfig"
 source "board/thead/th1520_lpi4a/Kconfig"
 source "board/xilinx/mbv/Kconfig"
+source "board/zhihe/p100-evb/Kconfig"
+source "board/zhihe/a200-evb/Kconfig"
 
 # platform-specific options below
 source "arch/riscv/cpu/andes/Kconfig"
@@ -99,6 +109,7 @@ source "arch/riscv/cpu/fu540/Kconfig"
 source "arch/riscv/cpu/fu740/Kconfig"
 source "arch/riscv/cpu/generic/Kconfig"
 source "arch/riscv/cpu/jh7110/Kconfig"
+source "arch/riscv/cpu/zhxtc9/Kconfig"
 
 # architecture-specific options below
 
@@ -464,7 +475,7 @@ config RISCV_PRIV_1_9
 	  memory is configured was also changed.
 
 config STACK_SIZE_SHIFT
-	int
+	int "Stack size shift"
 	default 14
 
 config OF_BOARD_FIXUP

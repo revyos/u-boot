@@ -63,7 +63,9 @@ struct dwc2_usbotg_reg {
 	u32 gnptxfsiz; /* Non-Periodic Transmit FIFO Size */
 	u8  res0[12];
 	u32 ggpio;     /* 0x038 */
-	u8  res1[20];
+	u32 guid;      /* 0x03c OTG_RM_OPT_FEATURES == 0*/
+	u32 gsnpsid;   /* 0x040 */
+	u8  res1[12];
 	u32 ghwcfg4; /* User HW Config4 */
 	u8  res2[176];
 	u32 dieptxf[15]; /* Device Periodic Transmit FIFO size register */
@@ -86,6 +88,10 @@ struct dwc2_usbotg_reg {
 
 /*===================================================================== */
 /*definitions related to CSR setting */
+
+/* DWC2_UDC_OTG_GSNPSID */
+#define DWC2_CORE_REV_MASK	0x0000ffff
+#define DWC2_CORE_REV_4_20a	0x4f54420a
 
 /* DWC2_UDC_OTG_GOTGCTL */
 #define B_SESSION_VALID			BIT(19)
@@ -118,6 +124,7 @@ struct dwc2_usbotg_reg {
 /* DWC2_UDC_OTG_GRSTCTL */
 #define AHB_MASTER_IDLE		(1u<<31)
 #define CORE_SOFT_RESET		(0x1<<0)
+#define CORE_SOFT_RESET_DONE	(0x1<<29)
 
 /* DWC2_UDC_OTG_GINTSTS/DWC2_UDC_OTG_GINTMSK core interrupt register */
 #define INT_RESUME			(1u<<31)

@@ -82,7 +82,12 @@ obj-$(CONFIG_$(SPL_TPL_)SYS_MALLOC_F) += malloc_simple.o
 obj-$(CONFIG_$(SPL_TPL_)CYCLIC) += cyclic.o
 obj-$(CONFIG_$(SPL_TPL_)EVENT) += event.o
 
+ifdef CONFIG_ZHIHE_RAMBUS_ALGO
+obj-$(CONFIG_$(SPL_TPL_)HASH) += rb_hash.o
+else
 obj-$(CONFIG_$(SPL_TPL_)HASH) += hash.o
+endif
+
 obj-$(CONFIG_IO_TRACE) += iotrace.o
 obj-y += memsize.o
 obj-y += stdio.o

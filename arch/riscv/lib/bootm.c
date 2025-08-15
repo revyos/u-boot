@@ -22,6 +22,7 @@
 #include <dm/device.h>
 #include <dm/root.h>
 #include <u-boot/zlib.h>
+#include <opensbi.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -106,6 +107,36 @@ static void boot_jump_linux(struct bootm_headers *images, int flag)
 	}
 }
 
+static void boot_jump_opensbi(struct bootm_headers *images, int flag, const char* opensbi_addr)
+{
+	static struct fw_dynamic_info opensbi_info;
+
+	void (*jump_opensbi)(ulong hart, void *dtb, struct fw_dynamic_info *p);
+	int fake = (flag & BOOTM_STATE_OS_FAKE_GO);
+
+	jump_opensbi = (void (*)(ulong, void *, struct fw_dynamic_info*))hextoul(opensbi_addr, NULL);
+
+	bootstage_mark(BOOTSTAGE_ID_RUN_OS);
+
+	debug("## Transferring control to kernel (at address %08lx) ...\n",
+	      (ulong)jump_opensbi);
+
+	announce_and_cleanup(fake);
+
+	opensbi_info.magic = FW_DYNAMIC_INFO_MAGIC_VALUE;
+	opensbi_info.version = 0x1;
+	opensbi_info.next_addr = images->os.start;
+	opensbi_info.next_mode = FW_DYNAMIC_INFO_NEXT_MODE_S;
+	opensbi_info.options = 0;
+	opensbi_info.boot_hart = csr_read(CSR_MHARTID);
+
+	if (!fake) {
+		if (CONFIG_IS_ENABLED(OF_LIBFDT) && images->ft_len) {
+			jump_opensbi(opensbi_info.boot_hart, images->ft_addr, &opensbi_info);
+		}
+	}
+}
+
 int do_bootm_linux(int flag, struct bootm_info *bmi)
 {
 	struct bootm_headers *images = bmi->images;
@@ -120,12 +151,20 @@ int do_bootm_linux(int flag, struct bootm_info *bmi)
 	}
 
 	if (flag & (BOOTM_STATE_OS_GO | BOOTM_STATE_OS_FAKE_GO)) {
-		boot_jump_linux(images, flag);
+		if (bmi->argc > 3) {
+			boot_jump_opensbi(images, flag, bmi->argv[3]);
+		} else {
+			boot_jump_linux(images, flag);
+		}
 		return 0;
 	}
 
 	boot_prep_linux(images);
-	boot_jump_linux(images, flag);
+	if (bmi->argc > 3) {
+		boot_jump_opensbi(images, flag, bmi->argv[3]);
+	} else {
+		boot_jump_linux(images, flag);
+	}
 	return 0;
 }
 

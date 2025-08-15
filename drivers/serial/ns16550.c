@@ -426,7 +426,17 @@ static int ns16550_serial_setbrg(struct udevice *dev, int baudrate)
 	struct ns16550_plat *plat = com_port->plat;
 	int clock_divisor;
 
-	clock_divisor = ns16550_calc_divisor(com_port, plat->clock, baudrate);
+	/* Divisor Latch Fraction Register */
+	int ret = dev_read_stringlist_search(dev, "compatible", "snps,dw-apb-uart");
+	if (ret >= 0) {
+		clock_divisor = (plat->clock * 10U) / (baudrate << 4U);
+		uint32_t fractional = clock_divisor % 10U;
+		clock_divisor = clock_divisor / 10U;
+
+		serial_out(16U * fractional / 10U, &com_port->thr + (0xc0>>2));
+	} else {
+		clock_divisor = ns16550_calc_divisor(com_port, plat->clock, baudrate);
+	}
 
 	ns16550_setbrg(com_port, clock_divisor);
 

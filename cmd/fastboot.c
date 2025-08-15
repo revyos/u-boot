@@ -61,7 +61,7 @@ static int do_fastboot_usb(int argc, char *const argv[],
 {
 	int controller_index;
 	char *usb_controller;
-	struct udevice *udc;
+	struct udevice *udc = NULL;
 	char *endp;
 	int ret;
 

@@ -1567,6 +1567,12 @@ static const struct udevice_id eqos_ids[] = {
 		.data = (ulong)&eqos_jh7110_config
 	},
 #endif
+#if IS_ENABLED(CONFIG_DWC_ETH_QOS_ZHIHE)
+	{
+		.compatible = "zhihe,p100-dwmac",
+		.data = (ulong)&eqos_zhihe_p100_config
+	},
+#endif
 	{ }
 };
 

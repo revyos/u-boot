@@ -851,6 +851,16 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	return 0;
 }
 
+#ifdef CONFIG_SPL_FIT_SIGNATURE
+/*
+ * Weak default function to allow customizing SPL fit verify
+ */
+__weak int board_spl_fit_is_verify(void)
+{
+	return 1;
+}
+#endif
+
 /* Parse and load full fitImage in SPL */
 int spl_load_fit_image(struct spl_image_info *spl_image,
 		       const struct legacy_img_hdr *header)
@@ -865,7 +875,7 @@ int spl_load_fit_image(struct spl_image_info *spl_image,
 	int ret;
 
 #ifdef CONFIG_SPL_FIT_SIGNATURE
-	images.verify = 1;
+	images.verify = board_spl_fit_is_verify();
 #endif
 	ret = fit_image_load(&images, virt_to_phys((void *)header),
 			     NULL, &fit_uname_config,
@@ -903,7 +913,7 @@ int spl_load_fit_image(struct spl_image_info *spl_image,
 	      spl_image->name, spl_image->load_addr, spl_image->size);
 
 #ifdef CONFIG_SPL_FIT_SIGNATURE
-	images.verify = 1;
+	images.verify = board_spl_fit_is_verify();
 #endif
 	ret = fit_image_load(&images, virt_to_phys((void *)header), NULL,
 			     &fit_uname_config, IH_ARCH_DEFAULT, IH_TYPE_FLATDT,
@@ -931,7 +941,7 @@ int spl_load_fit_image(struct spl_image_info *spl_image,
 				NULL), uname;
 	     idx++) {
 #ifdef CONFIG_SPL_FIT_SIGNATURE
-		images.verify = 1;
+		images.verify = board_spl_fit_is_verify();
 #endif
 		ret = fit_image_load(&images, (ulong)header,
 				     &uname, &fit_uname_config,

@@ -324,6 +324,11 @@ static int _dw_write_hwaddr(struct dw_eth_dev *priv, u8 *mac_id)
 	return 0;
 }
 
+__weak int dw_eth_set_txclk_by_speed(u32 speed)
+{
+	return 0;
+}
+
 static int dw_adjust_link(struct dw_eth_dev *priv, struct eth_mac_regs *mac_p,
 			  struct phy_device *phydev)
 {
@@ -346,6 +351,11 @@ static int dw_adjust_link(struct dw_eth_dev *priv, struct eth_mac_regs *mac_p,
 		conf |= FULLDPLXMODE;
 
 	writel(conf, &mac_p->conf);
+
+	if (dw_eth_set_txclk_by_speed(phydev->speed) < 0) {
+		pr_err("set txclk failed (speed=%u)", phydev->speed);
+		return -1;
+	}
 
 	printf("Speed: %d, %s duplex%s\n", phydev->speed,
 	       (phydev->duplex) ? "full" : "half",

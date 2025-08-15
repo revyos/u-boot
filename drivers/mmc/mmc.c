@@ -32,6 +32,11 @@
 
 static int mmc_set_signal_voltage(struct mmc *mmc, uint signal_voltage);
 
+#ifdef CONFIG_ZHIHE_MMC_OP_SUPPORT
+unsigned int zhihe_fixed_mmc_caps = 0;
+unsigned int zhihe_fixed_sd_caps  = 0;
+#endif
+
 #if !CONFIG_IS_ENABLED(DM_MMC)
 
 static int mmc_wait_dat0(struct mmc *mmc, int state, int timeout_us)
@@ -1033,6 +1038,13 @@ static int mmc_get_capabilities(struct mmc *mmc)
 	}
 #endif
 
+#ifdef CONFIG_ZHIHE_MMC_OP_SUPPORT
+	/* zhihe add for fixed emmc caps */
+	if (zhihe_fixed_mmc_caps) {
+		mmc->card_caps = zhihe_fixed_mmc_caps;
+	}
+#endif
+
 	return 0;
 }
 #endif
@@ -1427,6 +1439,13 @@ static int sd_get_capabilities(struct mmc *mmc)
 		mmc->card_caps |= MMC_CAP(UHS_SDR12);
 	if (sd3_bus_mode & SD_MODE_UHS_DDR50)
 		mmc->card_caps |= MMC_CAP(UHS_DDR50);
+#endif
+
+#ifdef CONFIG_ZHIHE_MMC_OP_SUPPORT
+	/* zhihe add for fixed sd caps */
+	if (zhihe_fixed_sd_caps) {
+		mmc->card_caps = zhihe_fixed_sd_caps;
+	}
 #endif
 
 	return 0;

@@ -845,6 +845,12 @@ config HASH
 	  and the algorithms it supports are defined in common/hash.c. See
 	  also CMD_HASH for command-line access.
 
+config ZHIHE_RAMBUS_ALGO
+	bool "Enable ZhiHe rambus algo API"
+	help
+	  This provides a way to crypt data in memory using zhihe rambus supported
+	  algorithms(such as SHA, RSA, SM2, SM3, SM4).
+
 config AVB_VERIFY
 	bool "Build Android Verified Boot operations"
 	depends on LIBAVB
