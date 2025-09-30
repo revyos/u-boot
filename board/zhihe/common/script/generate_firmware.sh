@@ -15,7 +15,7 @@ function generate_rvbl() {
     fi
 
     BIN_SIZE=$(stat -c%s ${BIN_FILE})
-    PAD_SIZE=$(( ( 4 - (BIN_SIZE % 4)) % 4 ))
+    PAD_SIZE=$(( ( 16 - (BIN_SIZE % 16)) % 16 ))
     PAD_BIN_SIZE=$(( BIN_SIZE + PAD_SIZE ))
 
     echo "6F0010005256424C" | xxd -r -p > ${OUT_FILE}
@@ -80,11 +80,18 @@ function generate_boot_firmware() {
     if [ "$1" == "none" ]; then
          cp u-boot-spl-rvbl.bin ${BTZ_SPL_FILE}
     else
-        generate_rvbl $1 none bootzero-rvbl.bin
+        if echo $1 | grep "bootzero.bin" > /dev/null; then
+            generate_rvbl $1 none bootzero-rvbl.bin
+            cp bootzero-rvbl.bin ${BTZ_SPL_FILE}
+        else
+            # bootzero2.bin
+            cp $1 ${BTZ_SPL_FILE}
+        fi
 
-        BTZ_LEN=`stat -c%s bootzero-rvbl.bin`
+        BTZ_LEN=`stat -c%s ${BTZ_SPL_FILE}`
         FILL_LEN=`expr 131072 - ${BTZ_LEN}`
-        cp bootzero-rvbl.bin ${BTZ_SPL_FILE}
+        
+        # Padding to 128K
         dd if=/dev/zero bs=1 count=${FILL_LEN} >> ${BTZ_SPL_FILE} 2>/dev/null
         cat u-boot-spl-rvbl.bin >> ${BTZ_SPL_FILE}
     fi
@@ -122,7 +129,7 @@ fi
 generate_programming_firmware $2 $3
 
 # Example1: Generate all firmware
-# generate_firmware p100-bootzero/bootzero.bin u-boot/spl/u-boot-spl.bin riscv-boot.itb
+# generate_firmware bootzero/bootzero.bin u-boot/spl/u-boot-spl.bin riscv-boot.itb
 #
 # Output files
 # bootzero-rvbl.bin u-boot-spl-rvbl.bin btz-with-spl-rvbl.bin
@@ -130,20 +137,20 @@ generate_programming_firmware $2 $3
 # Need to prepare the riscv-boot.itb file in advance
 # Before calling mkimage, please confirm that the correct file path is configured in the riscv-boot.its file
 # ----
-# cp u-boot/board/zhihe/p100-evb/riscv-boot.its .
+# cp u-boot/board/zhihe/a210-evb/riscv-boot.its .
 # gzip -kf opensbi/build/platform/generic/firmware/fw_dynamic.bin
 # gzip -kf u-boot/u-boot.bin
 # mkimage -f riscv-boot.its riscv-boot.itb
 # ----
 #
 # Example2: Generate boot firmware
-# u-boot/board/zhihe/p100-evb/script/generate_firmware.sh bootzero/bootzero.bin u-boot/spl/u-boot-spl.bin
+# u-boot/board/zhihe/a210-evb/script/generate_firmware.sh bootzero/bootzero.bin u-boot/spl/u-boot-spl.bin
 #
 # Output files
 # bootzero-rvbl.bin u-boot-spl-rvbl.bin spl-with-fit-rvbl.bin btz-with-spl-rvbl.bin
 #
 # Example3: Generate rvbl firmware
-# u-boot/board/zhihe/p100-evb/script/generate_firmware.sh rvbl spl/u-boot-spl.bin spl/u-boot-spl-rvbl.bin
+# u-boot/board/zhihe/a210-evb/script/generate_firmware.sh rvbl spl/u-boot-spl.bin spl/u-boot-spl-rvbl.bin
 #
 # Output files
 # spl/u-boot-spl-rvbl.bin
