@@ -97,6 +97,7 @@ config SPL_AES
 config BOARD_SPECIFIC_OPTIONS
 	def_bool y
 	select CPU_ZHXTC9
+	select BINMAN
 	imply SUPPORT_OF_CONTROL
 	imply OF_CONTROL
 	imply OF_REAL
