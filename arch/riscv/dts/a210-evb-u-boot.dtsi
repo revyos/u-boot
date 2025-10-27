@@ -7,7 +7,7 @@
 
 &binman {
 	itb {
-		filename = "riscv-boot.itb";
+		filename = "binman-riscv-boot.itb";
 		fit {
 			images {
 				aon-fw {
