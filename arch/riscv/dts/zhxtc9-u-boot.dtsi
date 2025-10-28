@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2025 Hangfan Li <lihangfan@iscas.ac.cn>
+ */
+
+#include <config.h>
+
+/ {
+	binman: binman {
+		multiple-images;
+	};
+};
+
+&binman {
+	itb {
+		filename = "binman-riscv-boot.itb";
+		fit {
+			description = "ZhiHe A210 Boot FIT image";
+			#address-cells = <1>;
+			fit,fdt-list = "of-list";
+
+			images {
+				@fdt-SEQ {
+					description = "NAME";
+					type = "flat_dt";
+					arch = "riscv";
+					compression = "none";
+					load = <0x8c000000>;
+				};
+
+				opensbi {
+					description = "OpenSBI fw_dynamic Firmware";
+					type = "firmware";
+					os = "opensbi";
+					arch = "riscv";
+					compression = "none";
+					load = /bits/ 64 <CONFIG_SPL_OPENSBI_LOAD_ADDR>;
+					entry = /bits/ 64 <CONFIG_SPL_OPENSBI_LOAD_ADDR>;
+
+					opensbi_blob: opensbi {
+						filename = "fw_dynamic.bin";
+						missing-msg = "opensbi";
+					};
+				};
+
+				uboot {
+					description = "U-Boot";
+					type = "firmware";
+					os = "U-Boot";
+					arch = "riscv";
+					compression = "none";
+					load = /bits/ 64 <CONFIG_TEXT_BASE>;
+					entry = /bits/ 64 <CONFIG_TEXT_BASE>;
+
+					uboot_blob: blob-ext {
+						filename = "u-boot.bin";
+					};
+				};
+
+				aon-fw {
+					description = "AON";
+					type = "firmware";
+					arch = "riscv";
+					compression = "none";
+					load = <0x308f8000>;
+					entry = <0x308f8000>;
+
+					aon_blob: blob-ext {
+						filename = "a210-aon.bin";
+					};
+				};
+			};
+
+			configurations {
+				default = "conf-evb";
+
+				conf-evb {
+					description = "EVB Configuration";
+					firmware = "opensbi";
+					loadables = "uboot", "aon-fw";
+					fdt = "fdt-1";
+				};
+
+				conf-dev {
+					description = "DEV Configuration";
+					firmware = "opensbi";
+					loadables = "uboot", "aon-fw";
+					fdt = "fdt-1";
+				};
+
+				conf-evb-d2d {
+					description = "EVB D2D Configuration";
+					firmware = "opensbi";
+					loadables = "uboot", "aon-fw";
+					fdt = "fdt-1";
+				};
+			};
+		};
+	};
+
+	fastboot-img {
+		filename = "binman-spl-with-fit-rvbl.bin";
+
+		mkimage {
+			args = "--no-copy -T zha210";
+			multiple-data-files;
+
+			u-boot-spl {
+			};
+
+			fit {
+				type = "blob";
+				filename = "binman-riscv-boot.itb";
+			};
+		};
+	};
+
+	emmc-boot-img {
+		filename = "binman-emmc_boot-loader.img";
+
+	};
+};

@@ -138,6 +138,7 @@ dumpimage-mkimage-objs := aisimage.o \
 			generated/lib/sha512.o \
 			generated/common/hash.o \
 			ublimage.o \
+			zha210.o \
 			zynqimage.o \
 			zynqmpimage.o \
 			zynqmpbif.o \
