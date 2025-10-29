@@ -118,5 +118,25 @@
 	emmc-boot-img {
 		filename = "binman-emmc_boot-loader.img";
 
+		section {
+			size = <0xD0000>;
+
+			blob-ext {
+				filename = "bootzero2.bin";
+			};
+
+			mkimage {
+				args = "--no-copy -T zha210";
+				multiple-data-files;
+
+				u-boot-spl {
+				};
+			};
+		};
+
+		fit {
+			type = "blob";
+			filename = "binman-riscv-boot.itb";
+		};
 	};
 };
