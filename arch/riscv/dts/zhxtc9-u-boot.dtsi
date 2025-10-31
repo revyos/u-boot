@@ -28,6 +28,18 @@
 					load = /bits/ 64 <0x81000000>;
 				};
 
+				fdt-opensbi {
+					description = "NAME";
+					type = "flat_dt";
+					arch = "riscv";
+					compression = "none";
+					load = /bits/ 64 <0x81000000>;
+
+					sbifdt_blob: blob_ext {
+						filename = "a210-opensbi.dtb";
+					};
+				};
+
 				opensbi {
 					description = "OpenSBI fw_dynamic Firmware";
 					type = "firmware";
@@ -78,21 +90,21 @@
 					description = "EVB Configuration";
 					firmware = "opensbi";
 					loadables = "uboot", "aon-fw";
-					fdt = "fdt-1";
+					fdt = "fdt-opensbi";
 				};
 
 				conf-dev {
 					description = "DEV Configuration";
 					firmware = "opensbi";
 					loadables = "uboot", "aon-fw";
-					fdt = "fdt-1";
+					fdt = "fdt-opensbi";
 				};
 
 				conf-evb-d2d {
 					description = "EVB D2D Configuration";
 					firmware = "opensbi";
 					loadables = "uboot", "aon-fw";
-					fdt = "fdt-1";
+					fdt = "fdt-opensbi";
 				};
 			};
 		};
