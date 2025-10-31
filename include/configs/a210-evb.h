@@ -12,7 +12,7 @@
 	"kernel_comp_addr_r=0x8a000000\0" \
 	"kernel_comp_size=0x6000000\0" \
 	"fdt_addr_r=0x9ff00000\0" \
-	"ramdisk_addr_r=0x9e000000\0" \
+	"ramdisk_addr_r=0x90000000\0" \
 	"pxefile_addr_r=0x88000000\0" \
 	"\0"
 #endif /* __CONFIG_A210_EVB_H */
