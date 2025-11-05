@@ -60,15 +60,13 @@ int board_init(void)
 	};
 	csi_init_soc_parameter(&soc_parameter);
 #endif
+
 	return 0;
 }
 
 #ifdef CONFIG_BOARD_LATE_INIT
 int board_late_init(void)
 {
-	/* After env are loaded, sync board info*/
-	uboot_sync_fdt_binfo_to_env((void *)gd->fdt_blob);
-
 	/* If it is in fastboot mode, the function does not return */
 	if (uboot_bootrom_fastboot()) {
 		run_command("env default -fa", 0);
@@ -91,6 +89,15 @@ int board_late_init(void)
 			gpt write ${devtype} ${devnum} $partitions; \
 			env set first_boot_done yes; env save; \
 			fi", 0);
+	}
+
+	const char * name = uboot_get_binfo_from_fdt((void *)gd->fdt_blob);
+	env_set("board", name);
+	env_set("board_name", name);
+	char fdtfile[64] = {};
+	if (env_get("fdtfile") == NULL) {
+		snprintf(fdtfile, sizeof(fdtfile), "zhihe/%s.dtb", name);
+		env_set("fdtfile", fdtfile);
 	}
 
 	return 0;
