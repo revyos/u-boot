@@ -26,6 +26,10 @@
 					arch = "riscv";
 					compression = "none";
 					load = /bits/ 64 <0x81000000>;
+
+					hash {
+						algo = "sha256";
+					};
 				};
 
 				fdt-opensbi {
@@ -37,6 +41,10 @@
 
 					sbifdt_blob: blob_ext {
 						filename = "a210-opensbi.dtb";
+					};
+
+					hash {
+						algo = "sha256";
 					};
 				};
 
@@ -53,6 +61,11 @@
 						filename = "fw_dynamic.bin";
 						missing-msg = "opensbi";
 					};
+
+
+					hash {
+						algo = "sha256";
+					};
 				};
 
 				uboot {
@@ -67,6 +80,10 @@
 					uboot_blob: blob-ext {
 						filename = "u-boot.bin";
 					};
+
+					hash {
+						algo = "sha256";
+					};
 				};
 
 				aon-fw {
@@ -80,27 +97,32 @@
 					aon_blob: blob-ext {
 						filename = "a210-aon.bin";
 					};
+
+
+					hash {
+						algo = "sha256";
+					};
 				};
 			};
 
 			configurations {
-				default = "conf-evb";
+				default = "a210-dev";
 
-				conf-evb {
+				a210-evb {
 					description = "EVB Configuration";
 					firmware = "opensbi";
 					loadables = "uboot", "aon-fw";
 					fdt = "fdt-opensbi";
 				};
 
-				conf-dev {
+				a210-dev {
 					description = "DEV Configuration";
 					firmware = "opensbi";
 					loadables = "uboot", "aon-fw";
 					fdt = "fdt-opensbi";
 				};
 
-				conf-evb-d2d {
+				a210-evb-d2d {
 					description = "EVB D2D Configuration";
 					firmware = "opensbi";
 					loadables = "uboot", "aon-fw";
