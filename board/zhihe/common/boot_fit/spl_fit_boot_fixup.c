@@ -102,7 +102,6 @@ const char * board_get_fit_config(void)
 	return spl_get_fit_dtb_name(1);
 }
 
-
 /******************************
  * Main fixups
  ******************************/
@@ -133,10 +132,12 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
     u64 start;
     u64 size;
 
+#if defined(CONFIG_SPL_ENV_SUPPORT) && defined(CONFIG_SPL_FS_EXT4)
     /* reload dtb file */
     if (spl_boot_device() != BOOT_DEVICE_BOOTROM) {
         spl_load_dtb_from_bootfs();
     }
+#endif
 
     /*
      * OS fdt fixup 
