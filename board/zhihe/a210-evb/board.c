@@ -75,20 +75,6 @@ int board_late_init(void)
 		/* Wait a moment, confirm that all content has been output. */
 		run_command("echo fastboot check success; sleep 1", 0);
 		run_command("fastboot usb 0", 0);
-	} else {
-		/* If the system boots for the first time.
-		 *   1. Load factory env to uboot evn
-		 *   2. Read gpt to env partitions
-		 *   3. Write backup gpt
-		 *   4. Set first_boot_done flag
-		 */
-		run_command("if test -z \"$first_boot_done\"; then \
-			fnv load; \
-			echo -n \"Reading GPT: \"; \
-			gpt read ${devtype} ${devnum} partitions; \
-			gpt write ${devtype} ${devnum} $partitions; \
-			env set first_boot_done yes; env save; \
-			fi", 0);
 	}
 
 	const char * name = uboot_get_binfo_from_fdt((void *)gd->fdt_blob);
