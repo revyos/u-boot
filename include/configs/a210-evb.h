@@ -13,13 +13,15 @@
 #define EVN_COMMON \
 	"tty_dev=ttyS4\0" \
 	"kernel_loglevel=4\0" \
+	"tmp_addr=0x8c200000\0" \
 	"opensbi_addr=0x80000000\0" \
 	"kernel_addr=0x80200000\0" \
 	"dtb_addr=0x8c000000\0" \
 	"initrd_addr=0x9e000000\0" \
+	"aon_addr=0x308f8000\0" \
 	"opensbi_file=fw_dynamic.bin\0" \
 	"kernel_file=Image\0" \
-	"dtb_file=a210-evb.dtb\0" \
+	"dtb_file=\0" \
 	"initrd_file=initrd\0" \
 	"aon_file=a210-aon.bin\0" \
 	"str_file=str.bin\0" \
@@ -41,22 +43,34 @@
 	"fastboot.has-slot:system_b=no\0" \
 	"fastboot.has-slot:app_a=no\0" \
 	"fastboot.has-slot:app_b=no\0" \
-	"fastboot.has-slot:home=no\0" \
+	"fastboot.has-slot:data=no\0" \
 	"fastboot.has-slot:gpt=no\0" \
 	"fastboot.has-slot:factory=no\0" \
 	"fastboot.has-slot:uboot_env=no\0"
 
+#ifdef CONFIG_RISCV_SMODE
 #define BOOT_FIT \
-	"bootcmd=run select_slot; boot_aon; run set_bargs_pre; setenv bootargs ${barg_pre}; booti $kernel_addr $initrd_addr:$initrd_size $dtb_addr;\0" \
+	"loadkernel=ext4load ${boot_device} ${kernel_addr}  ${kernel_file}; md5sum ${kernel_addr} $filesize\0" \
+	"loadinitrd=ext4load ${boot_device} ${initrd_addr}  ${initrd_file}; setenv initrd_size $filesize\0" \
+	"load_image= run loadkernel; run loadinitrd\0" \
+	"bootcmd=run select_slot; run load_image; boot_aon; run set_bargs_pre; setenv bootargs ${barg_pre}; booti $kernel_addr $initrd_addr:$initrd_size $dtb_addr;\0" \
 	"altbootcmd=run rollback; run rollback_finish; reset;\0"
+#else
+#define BOOT_FIT
+#endif
 
+#ifdef CONFIG_RISCV_MMODE
 #define BOOT_XT \
-	"loadfdt=ext4load    ${boot_device} ${dtb_addr}     ${fdt_file}\0" \
+	"loadfdt=ext4load    ${boot_device} ${dtb_addr}     ${dtb_file}\0" \
 	"loadkernel=ext4load ${boot_device} ${kernel_addr}  ${kernel_file}\0" \
 	"loadsbi=ext4load    ${boot_device} ${opensbi_addr} ${opensbi_file}\0" \
 	"loadinitrd=ext4load ${boot_device} ${initrd_addr}  ${initrd_file}; setenv initrd_size $filesize\0" \
-	"load_image=run loadsbi;run loadfdt;run loadkernel; run loadinitrd; \0" \
-	"boot_xt=run select_slot; run load_image; run set_bargs_pre; setenv bootargs ${barg_pre}; booti $kernel_addr $initrd_addr:$initrd_size $dtb_addr $opensbi_addr;\0" \
+	"loadaon=ext4load    ${boot_device} ${tmp_addr}     ${aon_file}; cp.b ${tmp_addr} ${aon_addr} $filesize\0" \
+	"load_image=run loadfdt; run loadsbi; run loadkernel; run loadinitrd; run loadaon\0" \
+	"bootcmd=run select_slot; run load_image; boot_aon; run set_bargs_pre; setenv bootargs ${barg_pre}; booti $kernel_addr $initrd_addr:$initrd_size $dtb_addr $opensbi_addr;\0"
+#else
+#define BOOT_XT
+#endif
 
 #define BOOT_NFS \
 	"nfsroot=10.0.11.6:/mnt/ssd/rootfs\0" \
@@ -85,6 +99,7 @@
 	"b_system_partuuid=3ee62a15-2457-4b7a-9e8e-785e1a9867f2\0" \
 	"b_apppart=8\0" \
 	"b_app_partuuid=d52e57e6-8bb7-4974-9282-fdecd05c7c92\0" \
+	"data_partuuid=b8753fb5-3a4c-4de7-b6c0-4fd4a705f750\0" \
 	"b_version=0.0.1\0" \
 	"b_boot_success=0\0" \
 	"set_slot_a=setenv boot_device ${devtype} ${devnum}:${a_bootpart}; setenv root_device /dev/${devtype}blk${devnum}p${a_systempart};\0" \

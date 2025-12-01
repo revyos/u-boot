@@ -7,21 +7,11 @@
 #include <serial.h>
 #include <time.h>
 #include <spl.h>
+#include <spl_load.h>
+#include "../include/board_porting.h"
+#include "../include/pkg_header.h"
 
-/*
- * Save current boot device
- */
-static u32 _first_boot_device = BOOT_DEVICE_MMC1;
-static void boot_set_device(u32 device)
-{
-	_first_boot_device = device;
-}
-
-u32 spl_boot_get_device(void)
-{
-	return _first_boot_device;
-}
-
+#if 0
 /*
  * Uart boot select
  * Return
@@ -48,23 +38,53 @@ static int uart_boot_check(void)
 	}
 	return 0;
 }
+#endif
+
+
+/*
+ * Check the SPL image header to verify whether the payload contains a FIT image.
+ * Only the SPL_LOAD_IMAGE_METHOD("SPL_WITH_FIT", ...) uses the payload method to package the image.
+ */
+static int spl_has_fit_payload(void)
+{
+	ulong payload_addr = 0;
+	struct legacy_img_hdr *fit_header;
+
+    /* payload check */
+    struct zhihe_image_header *header = (struct zhihe_image_header *)(CONFIG_SPL_TEXT_BASE - ZHIHE_PKG_HEAD_SIZE);
+
+    if (header->magic == RVBL_MAGIC) {
+        /* RVBL Header */
+        payload_addr = (CONFIG_SPL_TEXT_BASE - ZHIHE_PKG_HEAD_SIZE) + header->image_size;
+        if (header->rvbl_payload_size == 0) {
+            return 0;
+        }
+    } else if (header->magic == PKSE_MAGIC) {
+        /* PKSE Header */
+        payload_addr = CONFIG_SPL_TEXT_BASE + header->image_size - PUBKEYC_SIZE + SIGOFCODE_SIZE + ZHIHE_PKG_PUBKEY_HEAD_SIZE;
+    } else {
+        return 0;
+    }
+
+    /* Fit Magic Check */
+    fit_header = map_sysmem(payload_addr, 0);
+    if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) && image_get_magic(fit_header) == FDT_MAGIC) {
+		return 1;
+	}
+
+	return 0;
+}
 
 /*
  * Get first boot device
  */
-extern int board_bootrom_fastboot(void);
 u32 spl_boot_device(void)
 {
-	if(uart_boot_check()) {
-		/* Uart boot check */
-		boot_set_device(BOOT_DEVICE_BOOTROM);
-	} else if (board_bootrom_fastboot()) {
-		/* Bootsel boot check */
-		boot_set_device(BOOT_DEVICE_BOOTROM);
+	if (spl_has_fit_payload()) {
+		/* cct or fastboot send spl-with-fit-rvbl.bin to boot sram */
+		return BOOT_DEVICE_BOOTROM;
 	} else {
 		/* Default boot device */
-		boot_set_device(BOOT_DEVICE_MMC1);
+		return BOOT_DEVICE_MMC1;
 	}
-
-	return _first_boot_device;
 }

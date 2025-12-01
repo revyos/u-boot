@@ -15,6 +15,7 @@
 #include <fdt_support.h>
 
 #include "include/board.h"
+#include "../common/include/board_porting.h"
 #include "include/peri_clk.h"
 
 #ifdef CONFIG_LIGHT_AON_CONF
@@ -26,24 +27,20 @@
 /*
  * Board Late Init Hook
  */
-#if IS_ENABLED(CONFIG_FASTBOOT)
-static void fastboot_check(void)
-{
-	if (board_bootrom_fastboot()) {
-		run_command("env default -fa;env save", 0);
-		run_command("echo fastboot check success", 0);
-		run_command("fastboot usb 0", 0);
-	}
-}
-#endif
-
 #ifdef CONFIG_BOARD_LATE_INIT
 int board_late_init(void)
 {
-#if IS_ENABLED(CONFIG_FASTBOOT)
 	/* If it is in fastboot mode, the function does not return */
-	fastboot_check();
-#endif
+	if (board_bootrom_fastboot()) {
+		run_command("env default -fa", 0);
+		/* Config eMMC BOOT_PARTITION_ENABLE, fix qspiboot access emmcboot fail */
+		run_command("mmc partconf 0 0 1 0", 0);
+		run_command("echo fastboot check success", 0);
+		run_command("fastboot usb 0", 0);
+	} else {
+		/* if first boot, load factory env to uboot evn */
+		run_command("if test -z \"$first_boot_done\"; then fnv load; env set first_boot_done yes; env save; fi", 0);
+	}
 
 	ap_peri_clk_disable();
 	return 0;

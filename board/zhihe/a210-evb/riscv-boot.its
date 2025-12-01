@@ -3,16 +3,40 @@
 / {
 	description = "ZhiHe A210 Boot FIT image";
 	#address-cells = <1>;
- 
+
 	images {
-		fdt-1 {
-			description = "Device Tree";
-			data = /incbin/("replace-path/replace-dtb");
+		fdt-evb {
+			description = "EVB Device Tree";
+			data = /incbin/("replace-path/a210-evb.dtb");
 			type = "flat_dt";
 			arch = "riscv";
 			compression = "none";
 			load = <0x8c000000>;
-			invalid_hash {
+			hash {
+				algo = "sha256";
+			};
+		};
+
+		fdt-dev {
+			description = "DEV Device Tree";
+			data = /incbin/("replace-path/a210-dev.dtb");
+			type = "flat_dt";
+			arch = "riscv";
+			compression = "none";
+			load = <0x8c000000>;
+			hash {
+				algo = "sha256";
+			};
+		};
+
+		fdt-evb-d2d {
+			description = "EVB D2D Device Tree";
+			data = /incbin/("replace-path/a210-evb-d2d.dtb");
+			type = "flat_dt";
+			arch = "riscv";
+			compression = "none";
+			load = <0x8c000000>;
+			hash {
 				algo = "sha256";
 			};
 		};
@@ -26,7 +50,7 @@
 			compression = "gzip";
 			load = <0x80000000>;
 			entry = <0x80000000>;
-			invalid_hash {
+			hash {
 				algo = "sha256";
 			};
 		};
@@ -40,7 +64,7 @@
 			compression = "gzip";
 			load = <0x90000000>;
 			entry = <0x90000000>;
-			invalid_hash {
+			hash {
 				algo = "sha256";
 			};
 		};
@@ -53,23 +77,47 @@
 			compression = "none";
 			load = <0x308f8000>;
 			entry = <0x308f8000>;
-			invalid_hash {
+			hash {
 				algo = "sha256";
 			};
 		};
 	};
 
 	configurations {
-		default = "conf-1";
-		conf-1 {
-			description = "Default Configuration";
-			fdt = "fdt-1";
+		default = "a210-evb";
+		a210-evb {
+			description = "EVB Configuration";
+			fdt = "fdt-evb";
 			firmware = "opensbi-1";
 			loadables = "u-boot-1", "aon-1";
 			invalid_signature {
 				algo = "sha256,rsa2048";
 				key-name-hint = "signature_key_name";
-				sign-images = "fdt", "firmware";
+				sign-images = "fdt", "firmware", "uboot", "aon";
+			};
+		};
+
+		a210-dev {
+			description = "DEV Configuration";
+			fdt = "fdt-dev";
+			firmware = "opensbi-1";
+			loadables = "u-boot-1", "aon-1";
+			invalid_signature {
+				algo = "sha256,rsa2048";
+				key-name-hint = "signature_key_name";
+				sign-images = "fdt", "firmware", "uboot", "aon";
+			};
+		};
+
+		a210-evb-d2d {
+			description = "EVB D2D Configuration";
+			fdt = "fdt-evb-d2d";
+			firmware = "opensbi-1";
+			loadables = "u-boot-1", "aon-1";
+			invalid_signature {
+				algo = "sha256,rsa2048";
+				key-name-hint = "signature_key_name";
+				sign-images = "fdt", "firmware", "uboot", "aon";
 			};
 		};
 	};

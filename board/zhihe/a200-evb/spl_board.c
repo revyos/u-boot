@@ -536,9 +536,40 @@ void spl_board_init(void)
 #endif
 }
 
+/*****************************
+ * Board Porting
+ ****************************/
+/*
+ * Get ddr base addr & size 
+ * call at spl_fit_boot_fixup.c
+ */
 int board_get_ddr_info(u64 *start, u64 *size)
 {
 	*start = 0x0;
 	*size = get_ddr_density();
+	return 0;
+}
+
+/*
+ * Get Board info
+ */
+const char * board_get_fit_dtb_name(int do_multi_check)
+{
+	/* Use the U-Boot device tree name to 
+	 *   match the device tree used by the kernel.
+	 */
+	if (strcmp("p1", CONFIG_DEFAULT_DEVICE_TREE) == 0) {
+		return "th1520-lichee-pi-4a";
+	} else if (strcmp("a200-evb", CONFIG_DEFAULT_DEVICE_TREE) == 0) {
+		return "a200-evb";
+	}
+	return CONFIG_DEFAULT_DEVICE_TREE;
+}
+
+/* 
+ * Board user-define fdt fixup
+ */
+int board_fixup_os_fdt(void *fdt)
+{
 	return 0;
 }

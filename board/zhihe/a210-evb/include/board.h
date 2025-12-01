@@ -5,8 +5,10 @@
 #ifndef __BAORD_H_
 #define __BAORD_H_
 
+#include <linux/types.h>
 #include <stdint.h>
 #include "addr_defines.h"
+#include "../arch_ext/arch_ext.h"
 
 /* Boot Sel Register */
 #define BOOTSEL_REG_ADDR (AP_AON_SYSREG_BADDR + 0x104)
@@ -74,9 +76,14 @@
  */
 enum board_type {
     BOARD_EVB,
-    BOARD_CORE,
+    BOARD_DEV,
+    BOARD_EVB_D2D,
     BOARD_UNKNOWN,
 };
+
+#define STR_BOARD_EVB "a210-evb"
+#define STR_BOARD_DEV "a210-dev"
+#define STR_BOARD_EVB_D2D "a210-evb-d2d"
 
 enum ddr_type {
     DDR_4266_1Rank_2GB,
@@ -90,10 +97,19 @@ enum ddr_type {
  */
 int board_get_boot_sel(void);
 int board_get_die_count(void);
-int board_bootrom_fastboot(void);
 void gpio_pin_init(enum board_type board);
 void board_type_check(void);
 enum board_type board_get_type(void);
 enum ddr_type board_get_ddrtype(void);
+
+/*
+ * arch ext bram call
+ */
+void board_spl_prepare_bram_section(void);
+
+/*
+ * Bram call user interface
+ */
+void board_spl_switch_ddrpll(int speed);
 
 #endif

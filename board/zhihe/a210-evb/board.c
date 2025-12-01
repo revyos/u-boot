@@ -14,9 +14,9 @@
 
 #include "include/addr_defines.h"
 #include "include/board.h"
-#include "configs/a210-evb.h"
-#include "rambus/soc_parameter.h"
+#include "../common/include/board_porting.h"
 #include "../common/include/boot.h"
+#include "rambus/soc_parameter.h"
 
 /*
  * static functions
@@ -31,44 +31,26 @@ static void clk_init(void)
 #endif
 }
 
-#if IS_ENABLED(CONFIG_FASTBOOT)
-static void fastboot_check(void)
-{
-	if (board_bootrom_fastboot()) {
-		run_command("env default -fa;env save", 0);
-		run_command("echo fastboot check success", 0);
-		run_command("fastboot usb 0", 0);
-	}
-}
-#endif
-
 /*
  * U-Boot Board init hooks
  */
 int board_init(void)
 {
-	const char *conf;
-	int chosen_node = 0;
-	enum board_type board = BOARD_UNKNOWN;
+	enum board_type type = BOARD_UNKNOWN;
+	const char * name = board_get_binfo_from_fdt((void *)gd->fdt_blob);
 
-	void *fdt_uboot = find_uboot_fdt_blob();
-	if (!fdt_uboot) {
-		printf("%s(%d) get uboot fdt blob failed.\n", __func__, __LINE__);
-		return -1;
+	if (name) {
+		if (strcmp(name, STR_BOARD_DEV) == 0) {
+			type = BOARD_DEV;
+		} else if (strcmp(name, STR_BOARD_EVB) == 0) {
+			type = BOARD_EVB;
+		} else if (strcmp(name, STR_BOARD_EVB_D2D) == 0) {
+			type = BOARD_EVB_D2D;
+		}
 	}
 
-	chosen_node = fdt_path_offset(fdt_uboot, "/chosen");
-	conf = fdt_getprop(fdt_uboot, chosen_node, "board", NULL);
-	if (conf && strncmp(conf, "conf-dev", 8) == 0) {
-		board = BOARD_CORE;
-	} else if (conf && strncmp(conf, "conf-evb", 8) == 0) {
-		board = BOARD_EVB;
-	} else {
-		board = BOARD_UNKNOWN;
-	}
-	gpio_pin_init(board);
-
-	debug("%s(%d) uboot fdt blob 0x%p board-type: %s\n", __func__, __LINE__, fdt_uboot, conf);
+	printf("Board: %s(%d)\n", name, type);
+	gpio_pin_init(type);
 
 	clk_init();
 #ifdef CONFIG_ZHIHE_RAMBUS_ALGO
@@ -93,10 +75,17 @@ int board_init(void)
 #ifdef CONFIG_BOARD_LATE_INIT
 int board_late_init(void)
 {
-#if IS_ENABLED(CONFIG_FASTBOOT)
 	/* If it is in fastboot mode, the function does not return */
-	fastboot_check();
-#endif
+	if (board_bootrom_fastboot()) {
+		run_command("env default -fa", 0);
+		/* Config eMMC BOOT_PARTITION_ENABLE, fix qspiboot access emmcboot fail */
+		run_command("mmc partconf 0 0 1 0", 0);
+		run_command("echo fastboot check success", 0);
+		run_command("fastboot usb 0", 0);
+	} else {
+		/* if first boot, load factory env to uboot evn */
+		run_command("if test -z \"$first_boot_done\"; then fnv load; env set first_boot_done yes; env save; fi", 0);
+	}
 
 	return 0;
 }
