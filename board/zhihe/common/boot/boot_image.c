@@ -11,7 +11,7 @@
 #include <spl.h>
 #include <sysinfo.h>
 #include <ext4fs.h>
-#include "../include/boot.h"
+#include "../include/board_boot.h"
 #include "../include/board_porting.h"
 
 #define MAX_UBOOT_SIZE ((1024 + 512) * 1024)
@@ -60,6 +60,36 @@ u32 spl_mmc_boot_mode(struct mmc *mmc, const u32 boot_device)
     return MMCSD_MODE_EMMCBOOT;
 }
 
+
+static char *spl_env_get_os_dtb(ulong *paddr)
+{
+    *paddr = env_get_hex("dtb_addr", 0);
+    return env_get("dtb_file");
+}
+
+/*
+ * This function is called before loading the FIT file to return the eMMC partition ID
+ * For this function to take effect, CONFIG_SYS_MMCSD_FS_BOOT_PARTITION must not be defined as -1
+ */
+static int spl_env_get_mmc_bootfs_partid(void)
+{
+    char *act_slot;
+    char bootpart_name[]="x_bootpart";
+    int bootpart_id = CONFIG_SYS_MMCSD_FS_BOOT_PARTITION;
+
+    act_slot = env_get("active_slot");
+
+    if (act_slot) {
+        bootpart_name[0] = act_slot[0];
+        bootpart_id = env_get_hex(bootpart_name, CONFIG_SYS_MMCSD_FS_BOOT_PARTITION);
+    }
+    
+    printf("## Boot AB\n");
+    printf("  Active slot: %s\n", act_slot);
+    printf("  Bootpart: %d\n", bootpart_id);
+    return bootpart_id;
+}
+
 static int spl_mmc_find_device(struct mmc **mmcp, int mmc_dev)
 {
     int err;
@@ -96,7 +126,7 @@ int spl_load_dtb_from_bootfs(void)
     /* Check dtb filename */
     dtb_file = spl_env_get_os_dtb(&dtb_addr);
     if (dtb_file == NULL) {
-        sprintf(dtb_filename_buf, "%s.dtb", board_get_fit_dtb_name(1));
+        sprintf(dtb_filename_buf, "%s.dtb", spl_get_fit_dtb_name(1));
         dtb_file = dtb_filename_buf;
     }
 

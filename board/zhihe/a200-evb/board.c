@@ -15,7 +15,9 @@
 #include <fdt_support.h>
 
 #include "include/board.h"
-#include "../common/include/board_porting.h"
+#include "board_porting.h"
+#include "board_boot.h"
+#include "board_check.h"
 #include "include/peri_clk.h"
 
 #ifdef CONFIG_LIGHT_AON_CONF
@@ -25,21 +27,46 @@
 #endif
 
 /*
+ * U-Boot Board init hooks
+ */
+int board_init(void)
+{
+	const char * name = uboot_get_binfo_from_fdt((void *)gd->fdt_blob);
+	printf("Board: %s\n", name);
+	uboot_gpio_pin_init(name);
+	return 0;
+}
+
+/*
  * Board Late Init Hook
  */
 #ifdef CONFIG_BOARD_LATE_INIT
 int board_late_init(void)
 {
+	/* After env are loaded, sync board info*/
+	uboot_sync_fdt_binfo_to_env((void *)gd->fdt_blob);
+
 	/* If it is in fastboot mode, the function does not return */
-	if (board_bootrom_fastboot()) {
+	if (uboot_bootrom_fastboot()) {
 		run_command("env default -fa", 0);
 		/* Config eMMC BOOT_PARTITION_ENABLE, fix qspiboot access emmcboot fail */
 		run_command("mmc partconf 0 0 1 0", 0);
-		run_command("echo fastboot check success", 0);
+		/* Wait a moment, confirm that all content has been output. */
+		run_command("echo fastboot check success; sleep 1", 0);
 		run_command("fastboot usb 0", 0);
 	} else {
-		/* if first boot, load factory env to uboot evn */
-		run_command("if test -z \"$first_boot_done\"; then fnv load; env set first_boot_done yes; env save; fi", 0);
+		/* If the system boots for the first time.
+		 *   1. Load factory env to uboot evn
+		 *   2. Read gpt to env partitions
+		 *   3. Write backup gpt
+		 *   4. Set first_boot_done flag
+		 */
+		run_command("if test -z \"$first_boot_done\"; then \
+			fnv load; \
+			gpt read ${devtype} ${devnum} partitions; \
+			gpt write ${devtype} ${devnum} $partitions; \
+			env set first_boot_done yes; env save; \
+			fi", 0);
 	}
 
 	ap_peri_clk_disable();

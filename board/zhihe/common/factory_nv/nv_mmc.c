@@ -212,11 +212,15 @@ static int do_fnv_load(struct cmd_tbl *cmdtp, int flag, int argc, char *const ar
 
     /* Get fnv from emmc to read_buf & get name to export_names */
     int fnv_len = load_fnv_to_mem();
-    printf("[NV] Load fnv(%d): %s\n", fnv_len, fnv_priv.export_names);
-
+    if (fnv_len >= 10) {
+        printf("[NV] Load fnv(%d): %s\n", fnv_len, fnv_priv.export_names);
+    } else {
+        printf("[NV] No valid data in factory env.\n");
+        return 0;
+    }
 
     /* Force import fnv to uboot env */
-    snprintf(fnv_priv.runcmd_buf, FNV_CMD_LEN, "env import -c 0x%lx 0x%lx",
+    snprintf(fnv_priv.runcmd_buf, FNV_CMD_LEN, "env import -c 0x%lx 0x%x",
              (unsigned long)fnv_priv.read_buf, FNV_TOTAL_LEN);
     debug("[DBG] run %s\n", fnv_priv.runcmd_buf);
     ret = run_command(fnv_priv.runcmd_buf, 0);
@@ -278,6 +282,7 @@ static int do_fnv(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 }
 
 U_BOOT_CMD(fnv, CONFIG_SYS_MAXARGS, 0, do_fnv, "Factory nv handling commands",
-           "fnv save var ...\n"
+           "save var ...\n"
            "fnv load\n"
+           "fnv erase\n"
            "fnv print\n");

@@ -34,6 +34,11 @@
 /*
  * Board Common interface
  */
-int board_get_boot_sel(void);
+int loader_get_boot_sel(void);
+
+int uboot_gpio_pin_init(const char *board_name);
+int uboot_bootrom_fastboot(void);
+
+void spl_board_check(void);
 
 #endif

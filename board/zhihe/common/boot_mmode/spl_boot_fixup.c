@@ -10,8 +10,7 @@
 #include <mapmem.h>
 #include <spl.h>
 #include <sysinfo.h>
-#include "../include/boot.h"
-#include "../include/pkg_header.h"
+#include "../include/board_boot.h"
 
 #ifndef CONFIG_FIT
 
@@ -20,7 +19,7 @@
  * Please implement this function in the
  * board-level code to override the weak implementation.
  */
-__weak int board_get_ddr_info(u64 *start, u64 *size)
+__weak int spl_get_ddr_info(u64 *start, u64 *size)
 {
     return -1;
 }
@@ -42,7 +41,7 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
     debug("uboot fdt blob 0x%p\n", fdt_uboot);
 
     /* 1. Fixup DDR size, write to u-boot fdt */
-    if (board_get_ddr_info(&start, &size) == 0) {
+    if (spl_get_ddr_info(&start, &size) == 0) {
         int ret = fdt_fixup_memory(fdt_uboot, start, size);
         debug("fixup mem ret %d\n", ret);
         if (ret) {

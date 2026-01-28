@@ -11,10 +11,9 @@
 #include <mapmem.h>
 #include <spl.h>
 #include <sysinfo.h>
-#include "../include/boot.h"
+#include "../include/board_boot.h"
+#include "../include/board_check.h"
 #include "../include/board_porting.h"
-
-#include "../include/pkg_header.h"
 
 /******************************
  * Fixup Kernel boot
@@ -98,7 +97,7 @@ static int fit_os_fdt_fixup(void *fit_header, void *os_fdt)
 /* Override weak imp at common/spl/spl_fit.c */
 const char * board_get_fit_config(void)
 {
-	return board_get_fit_dtb_name(1);
+	return spl_get_fit_dtb_name(1);
 }
 
 
@@ -126,7 +125,7 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
     fit_os_fdt_fixup(map_sysmem(CONFIG_SYS_LOAD_ADDR, 0), spl_image->fdt_addr);
 
     /* 2. Board user-define fdt fixup */
-    if (board_fixup_os_fdt(spl_image->fdt_addr) !=0 ) {
+    if (spl_fixup_os_fdt(spl_image->fdt_addr) !=0 ) {
         printf("spl: Warning, failed fixup os fdt\n");
     }
 
@@ -139,7 +138,7 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
         return;
     }
     debug("uboot fdt blob 0x%p\n", fdt_uboot);
-    if (board_get_ddr_info(&start, &size) == 0) {
+    if (spl_get_ddr_info(&start, &size) == 0) {
         int ret = fdt_fixup_memory(fdt_uboot, start, size);
         debug("fixup mem ret %d\n", ret);
         if (ret) {
@@ -148,7 +147,7 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
     }
 
     /* 2. Set board type pass to u-boot */
-    board_set_binfo_to_fdt(fdt_uboot);
+    spl_set_binfo_to_uboot_fdt(fdt_uboot);
 }
 
 #ifdef CONFIG_SPL_FIT_SIGNATURE

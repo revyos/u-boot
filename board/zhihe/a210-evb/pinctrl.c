@@ -402,6 +402,28 @@ int gpio_pin_cfg(pin_name_t pin_name, uint32_t slew_rate, uint32_t pullmode, uin
 	return ret;
 }
 
+int gpio_pin_output(const char *name, int value)
+{
+	int ret;
+	unsigned gpio;
+
+	ret = gpio_lookup_name(name, NULL, NULL, &gpio);
+	if (ret)
+		return ret;
+
+	ret = gpio_request(gpio, "pinctrl");
+	if (ret)
+		return ret;
+
+	ret = gpio_direction_output(gpio, value);
+	if (ret)
+		return ret;
+
+	gpio_free(gpio);
+
+	return 0;
+}
+
 static int gmac_phy_rst(const char *str_gpio)
 {
 	unsigned int gpio;
@@ -425,30 +447,8 @@ static int gmac_phy_rst(const char *str_gpio)
 	return ret;
 }
 
-#define AP_GPIO0_27		(0x1 << 27)	// USBtypeC_PWREN
-
-static void usbc_pwren(void)
+int uboot_gpio_pin_init(const char *board_name)
 {
-	writel(readl((void *)(AP_GPIO0_BADDR + 0x4)) | AP_GPIO0_27,
-	       (void *)(AP_GPIO0_BADDR + 0x4));
-
-	writel(readl((void *)AP_GPIO0_BADDR) | AP_GPIO0_27,
-	       (void *)AP_GPIO0_BADDR);
-	wmb();
-}
-
-void gpio_pin_init(enum board_type board)
-{
-	unsigned int gpio;
-	int ret = 0;
-
-	/* aon-padmux config */
-
-	if (board == BOARD_UNKNOWN) {
-		debug("board type is unknown\n");
-		return;
-	}
-
 	// Common IO pamdmux
 	// uart4
 	gpio_pin_mux(GPIO2_0, 1);
@@ -508,13 +508,9 @@ void gpio_pin_init(enum board_type board)
 	gpio_pin_cfg(GPIO2_10, PIN_SPEED_NORMAL, PIN_PN, 0x4);
 	gpio_pin_cfg(GPIO2_11, PIN_SPEED_NORMAL, PIN_PN, 0x4);
 
-	switch(board) {
-	case BOARD_DEV:
-		if(gmac_phy_rst("ao_gpio@0_24"))	// PHY1_nRST
-			pr_warn("gmac_phy_rst ao_gpio@0_24 failed\n");
-		if(gmac_phy_rst("ao_gpio@0_25"))	// PHY0_nRST
-			pr_warn("gmac_phy_rst ao_gpio@0_25 failed\n");
-		usbc_pwren();
+	if (strcmp("a210-dev", board_name) == 0) {
+		gmac_phy_rst("ao_gpio@0_24");	// PHY1_nRST
+		gmac_phy_rst("ao_gpio@0_25");	// PHY0_nRST
 
 		// gmac1
 		gpio_pin_mux(GPIO1_2, 1);
@@ -551,42 +547,35 @@ void gpio_pin_init(enum board_type board)
 		gpio_pin_mux(GPIO2_29, 1);
 		gpio_pin_cfg(GPIO2_28, PIN_SPEED_NORMAL, PIN_PN, 0x4);
 		gpio_pin_cfg(GPIO2_29, PIN_SPEED_NORMAL, PIN_PN, 0x4);
+
 		// i2c6-0
 		gpio_pin_mux(GPIO2_8, 5);
 		gpio_pin_mux(GPIO2_9, 5);
 		gpio_pin_cfg(GPIO2_8, PIN_SPEED_NORMAL, PIN_PN, 0x4);
 		gpio_pin_cfg(GPIO2_9, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		// SOM1: pci-e device reset, SOM2: Fan power
-		gpio_pin_mux(GPIO0_30, 0);
-		ret = gpio_lookup_name("gpio@0_30", NULL, NULL, &gpio);
-		if (ret == 0) {
-			ret = gpio_request(gpio, "cmd_gpio");
-			if (ret == 0) {
-				gpio_direction_output(gpio, 1);
-				gpio_free(gpio);
-			}
-		}
-		break;
-	case BOARD_EVB_D2D:
-		if(gmac_phy_rst("gpio@1_15"))	// PHY0_nRST
-			pr_warn("gmac_phy_rst gpio@1_15 failed\n");
+
+		// cfg bootsel0 to gpio
+		gpio_pin_mux(BOOT_SEL0, 3);
+
+		// POWER_3V3_EN
+		gpio_pin_output("ao_gpio@0_26", 1);
+		// POWER_5V_EN
+		gpio_pin_output("ao_gpio@0_29", 1);
+		// USBtypeC_PWREN
+		gpio_pin_output("gpio@0_27", 1);
+		// SOM2: Fan power SOM1: pci-e device reset
+		gpio_pin_output("gpio@0_30", 1);
+	} else if (strcmp("a210-evb-d2d", board_name) == 0) {
+		// PHY0_nRST
+		gmac_phy_rst("gpio@1_15");
 
 		// pci-e device reset
-		gpio_pin_mux(GPIO0_30, 0);
-		ret = gpio_lookup_name("gpio@0_30", NULL, NULL, &gpio);
-		if (ret == 0) {
-			ret = gpio_request(gpio, "cmd_gpio");
-			if (ret == 0) {
-				gpio_direction_output(gpio, 1);
-				gpio_free(gpio);
-			}
-		}
-		break;
-	case BOARD_EVB:
-		if(gmac_phy_rst("ao_gpio@1_5"))	// PHY0_nRST
-			pr_warn("gmac_phy_rst ao_gpio@1_5 failed\n");
-		if(gmac_phy_rst("ao_gpio@1_6"))	// PHY1_nRST
-			pr_warn("gmac_phy_rst ao_gpio@1_6 failed\n");
+		gpio_pin_output("gpio@0_30", 1);
+	} else if (strcmp("a210-evb", board_name) == 0) {
+		// PHY0_nRST
+		gmac_phy_rst("ao_gpio@1_5");
+		// PHY1_nRST
+		gmac_phy_rst("ao_gpio@1_6");
 
 		// chip debug
 		gpio_pin_mux(GPIO1_6, 4);
@@ -601,11 +590,11 @@ void gpio_pin_init(enum board_type board)
 		gpio_pin_mux(GPIO0_30, 0); // cs0 gpio
 		gpio_pin_mux(GPIO0_31, 0); // cs1 gpio
 		gpio_pin_mux(GPIO1_1, 6);
-		gpio_pin_cfg(GPIO0_28, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO0_29, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO0_30, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO0_31, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO1_1, PIN_SPEED_NORMAL, PIN_PN, 0x4);
+		gpio_pin_cfg(GPIO0_28, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO0_29, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO0_30, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO0_31, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO1_1, PIN_SPEED_NORMAL, PIN_PN, 0x8);
 
 		// spi1-1
 		gpio_pin_mux(GPIO2_17, 2);
@@ -613,11 +602,11 @@ void gpio_pin_init(enum board_type board)
 		gpio_pin_mux(GPIO2_19, 0); // cs1 gpio
 		gpio_pin_mux(GPIO2_21, 2);
 		gpio_pin_mux(GPIO2_22, 2);
-		gpio_pin_cfg(GPIO2_17, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO2_18, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO2_19, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO2_21, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO2_22, PIN_SPEED_NORMAL, PIN_PN, 0x4);
+		gpio_pin_cfg(GPIO2_17, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO2_18, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO2_19, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO2_21, PIN_SPEED_NORMAL, PIN_PN, 0x8);
+		gpio_pin_cfg(GPIO2_22, PIN_SPEED_NORMAL, PIN_PN, 0x8);
 
 		// qspi1-1
 		gpio_pin_mux(GPIO2_29, 0); // cs0 gpio
@@ -643,11 +632,11 @@ void gpio_pin_init(enum board_type board)
 		gpio_pin_mux(GPIO0_27, 2);
 		gpio_pin_cfg(GPIO0_26, PIN_SPEED_NORMAL, PIN_PN, 0x4);
 		gpio_pin_cfg(GPIO0_27, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		// i2c2-0
-		gpio_pin_mux(GPIO0_22, 2);
-		gpio_pin_mux(GPIO0_23, 2);
-		gpio_pin_cfg(GPIO0_22, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		gpio_pin_cfg(GPIO0_23, PIN_SPEED_NORMAL, PIN_PN, 0x4);
+		// i2c2-0: Conflict with qspi0
+		// gpio_pin_mux(GPIO0_22, 2);
+		// gpio_pin_mux(GPIO0_23, 2);
+		// gpio_pin_cfg(GPIO0_22, PIN_SPEED_NORMAL, PIN_PN, 0x4);
+		// gpio_pin_cfg(GPIO0_23, PIN_SPEED_NORMAL, PIN_PN, 0x4);
 		// i2c3-2
 		gpio_pin_mux(GPIO2_24, 1);
 		gpio_pin_mux(GPIO2_25, 1);
@@ -663,8 +652,10 @@ void gpio_pin_init(enum board_type board)
 		gpio_pin_mux(GPIO2_5, 5);
 		gpio_pin_cfg(GPIO2_4, PIN_SPEED_NORMAL, PIN_PN, 0x4);
 		gpio_pin_cfg(GPIO2_5, PIN_SPEED_NORMAL, PIN_PN, 0x4);
-		break;
-	default:
-		break;
+	} else {
+		printf("Unknown board name %s\n", board_name);
+		while(1);
+		return -1;
 	}
+	return 0;
 }
