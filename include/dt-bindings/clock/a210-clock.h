@@ -115,6 +115,15 @@
 #define PERI1_GMAC1_ACLK_EN                  260
 #define PERI1_GMAC0_HCLK_EN                  261
 #define PERI1_GMAC0_ACLK_EN                  262
+#define PERI1_GMAC1_X2H_HCLK_EN              263
+#define PERI1_GMAC1_X2H_ACLK_EN              264
+#define PERI1_GMAC0_X2H_HCLK_EN              265
+#define PERI1_GMAC0_X2H_ACLK_EN              266
+#define PERI1_I2C2_PCLK_EN                   267
+#define PERI1_I2C1_PCLK_EN                   268
+#define PERI1_I2C0_PCLK_EN                   269
+#define PERI1_SPI0_PCLK_EN                   270
+#define PERI1_QSPI0_PCLK_EN                  271
 // PERI2_SYSREG
 #define PERI2_I2C7_IC_CLK_EN                 300
 #define PERI2_I2C6_IC_CLK_EN                 301
@@ -126,10 +135,27 @@
 #define PERI2_UART4_SCLK_EN                  307
 #define PERI2_SPI1_SSI_CLK_EN                308
 #define PERI2_QSPI1_SSI_CLK_EN               309
+#define PERI2_I2C7_PCLK_EN                   310
+#define PERI2_I2C6_PCLK_EN                   311
+#define PERI2_I2C5_PCLK_EN                   312
+#define PERI2_I2C4_PCLK_EN                   313
+#define PERI2_I2C3_PCLK_EN                   314
+#define PERI2_SPI1_PCLK_EN                   315
+#define PERI2_QSPI1_PCLK_EN                  316
 // PERI3_SYSREG
 #define PERI3_GPIO4_PCLK_EN                  350
 #define PERI3_EMMC_SDIO_REF_CLK_CG_EN        351
 #define PERI3_EMMC_SDIO_REF_CLK              352
+#define PERI3_EMMC_ACLK_EN                   353
+#define PERI3_EMMC_HCLK_EN                   354
+#define PERI3_EMMC_OSC_CLK_EN                355
+#define PERI3_EMMC_X2X_ACLK_M_EN             356
+#define PERI3_EMMC_X2X_ACLK_S_EN             357
+#define PERI3_SDIO_ACLK_EN                   358
+#define PERI3_SDIO_HCLK_EN                   359
+#define PERI3_SDIO_OSC_CLK_EN                360
+#define PERI3_SDIO_X2X_ACLK_M_EN             361
+#define PERI3_SDIO_X2X_ACLK_S_EN             362
 
 #define OSC_24M                              400
 #define AON_OSC_CLK_LOGIC                    401

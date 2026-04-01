@@ -144,6 +144,7 @@ struct dw_qspi_priv {
 	unsigned int freq;              /* Default frequency */
 	unsigned int mode;
 	struct clk clk;
+	struct clk pclk;
 	unsigned long bus_clk_rate;
 
 	struct gpio_desc cs_gpio;       /* External chip-select gpio */
@@ -287,6 +288,11 @@ __weak int dw_qspi_get_clk(struct udevice *bus, ulong *rate)
 	*rate = clk_get_rate(&priv->clk);
 	if (!*rate)
 		goto err_rate;
+
+	ret = clk_get_by_name(bus, "pclk", &priv->pclk);
+	if (ret == 0) {
+		clk_enable(&priv->pclk);
+	}
 
 	dev_dbg(bus, "%s: get spi controller clk via device tree: %lu Hz\n",
 	      __func__, *rate);
@@ -845,9 +851,8 @@ static int dw_qspi_remove(struct udevice *bus)
 		return ret;
 
 #if CONFIG_IS_ENABLED(CLK)
-	ret = clk_disable(&priv->clk);
-	if (ret)
-		return ret;
+	clk_disable(&priv->clk);
+	clk_disable(&priv->pclk);
 #endif
 	return 0;
 }

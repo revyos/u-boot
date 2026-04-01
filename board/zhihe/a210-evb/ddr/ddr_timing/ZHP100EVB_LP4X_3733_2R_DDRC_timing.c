@@ -124,8 +124,8 @@ static struct dram_cfg_param lpddr4_ddrc_cfg[] = {
 };
 
 /* lpddr4x 2R timing config params on EVB */
-struct dram_timing_info dram_timing_4266_2r = {
+struct dram_timing_info dram_timing_3733_2r = {
     .ddrc_cfg = lpddr4_ddrc_cfg,
     .ddrc_cfg_num = ARRAY_SIZE(lpddr4_ddrc_cfg),
-    .fsp_table = { 4266 },
+    .fsp_table = { 3733 },
 };

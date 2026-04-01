@@ -139,6 +139,80 @@
 			status = "okay";
 		};
 
+		peri0_sysreg: peri0-sysreg@300000 {
+			compatible = "syscon";
+			reg = <0x00 0x00300000 0x0 0x10000>;
+		};
+
+		peri0_rst: peri0-rst {
+			compatible = "syscon-reset";
+			regmap = <&peri0_sysreg>;
+			offset = <0x400>;
+			mask = <0x0000007f>;
+			assert-high = <0>;
+			#reset-cells = <1>;
+		};
+	
+		peri1_sysreg: peri1-sysreg@2010000 {
+			compatible = "syscon";
+			reg = <0x00 0x02010000 0x0 0x10000>;
+		};
+
+		peri1_rst_n0: peri1-rst-n0 {
+			compatible = "syscon-reset";
+			regmap = <&peri1_sysreg>;
+			offset = <0x400>;
+			mask = <0xffffffff>;
+			assert-high = <0>;
+			#reset-cells = <1>;
+		};
+
+		peri1_rst_n1: peri1-rst-n1 {
+			compatible = "syscon-reset";
+			regmap = <&peri1_sysreg>;
+			offset = <0x404>;
+			mask = <0x03ffffff>;
+			assert-high = <0>;
+			#reset-cells = <1>;
+		};
+
+		peri2_sysreg: peri2-sysreg@8400000 {
+			compatible = "syscon";
+			reg = <0x00 0x08400000 0x0 0x10000>;
+		};
+
+		peri2_rst_n0: peri2-rst-n0 {
+			compatible = "syscon-reset";
+			regmap = <&peri2_sysreg>;
+			offset = <0x400>;
+			mask = <0xffffffff>;
+			assert-high = <0>;
+			#reset-cells = <1>;
+		};
+
+		peri2_rst_n1: peri2-rst-n1 {
+			compatible = "syscon-reset";
+			regmap = <&peri2_sysreg>;
+			offset = <0x404>;
+			mask = <0x000007ff>;
+			assert-high = <0>;
+			#reset-cells = <1>;
+		};
+
+		peri3_sysreg: peri3-sysreg@540000 {
+			compatible = "syscon";
+			reg = <0x00 0x00540000 0x0 0x10000>;
+		};
+
+		peri3_rst: peri3-rst {
+			compatible = "syscon-reset";
+			regmap = <&peri3_sysreg>;
+			offset = <0x400>;
+			mask = <0x000003ff>;
+			assert-high = <0>;
+			#reset-cells = <1>;
+		};
+
 		uart4: serial@08401000 {
 			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x08401000 0x0 0x400>;
@@ -151,20 +225,24 @@
 		gmac0: ethernet@02100000{
 			compatible = "zhihe,a2xx-dwmac";
 			reg = <0x00 0x02100000 0x0 0x10000>;
-			clocks = <&clk PERI1_GMAC0_HCLK_EN>, <&clk PERI1_GMAC0_ACLK_EN>;
-			clock-names = "master_bus", "aclk";
+			clocks = <&clk PERI1_GMAC0_ACLK_EN>, <&clk PERI1_GMAC0_HCLK_EN>, <&clk PERI1_GMAC0_X2H_ACLK_EN>, <&clk PERI1_GMAC0_X2H_HCLK_EN>;
+			clock-names = "aclk", "hclk", "x2h_aclk", "x2h_hclk";
 			snps,pbl = <32>;
 			snps,fixed-burst;
+			resets = <&peri1_rst_n0 0>, <&peri1_rst_n0 1>, <&peri1_rst_n0 31>, <&peri1_rst_n1 0>;
+			reset-names = "arst", "hrst", "x2h_arst", "x2h_hrst";
 			status = "okay";
 		};
 
 		gmac1: ethernet@02110000{
 			compatible = "zhihe,a2xx-dwmac";
 			reg = <0x00 0x02110000 0x0 0x10000>;
-			clocks = <&clk PERI1_GMAC1_HCLK_EN>, <&clk PERI1_GMAC1_ACLK_EN>;
-			clock-names = "master_bus", "aclk";
+			clocks = <&clk PERI1_GMAC1_ACLK_EN>, <&clk PERI1_GMAC1_HCLK_EN>, <&clk PERI1_GMAC1_X2H_ACLK_EN>, <&clk PERI1_GMAC1_X2H_HCLK_EN>;
+			clock-names = "aclk", "hclk", "x2h_aclk", "x2h_hclk";
 			snps,pbl = <32>;
 			snps,fixed-burst;
+			resets = <&peri1_rst_n0 2>, <&peri1_rst_n0 3>, <&peri1_rst_n1 1>, <&peri1_rst_n1 2>;
+			reset-names = "arst", "hrst", "x2h_arst", "x2h_hrst";
 			status = "okay";
 		};
 
@@ -172,9 +250,17 @@
 			compatible = "zhihe,a2xx-dwcmshc";
 			reg = <0x00 0x00500000 0x0 0x10000>;
 			index = <0x0>;
-			clocks = <&clk PERI3_EMMC_SDIO_REF_CLK_CG_EN>;
-			clock-names = "core";
+			clocks = <&clk PERI3_EMMC_SDIO_REF_CLK_CG_EN>,
+					<&clk PERI3_EMMC_ACLK_EN>,
+					<&clk PERI3_EMMC_HCLK_EN>,
+					<&clk PERI3_EMMC_OSC_CLK_EN>,
+					<&clk PERI3_EMMC_X2X_ACLK_M_EN>,
+					<&clk PERI3_EMMC_X2X_ACLK_S_EN>;
+			clock-names = "core", "aclk", "hclk", "oscclk", "aclkm", "aclks";
+			resets = <&peri3_rst 3>, <&peri3_rst 4>, <&peri3_rst 5>;
+			reset-names = "rst_n", "x2x_arst_n_m", "x2x_arst_n_s";
 			sdhci-caps-mask = <0x0 0x1000000>;
+			mmc-hs400-enhanced-strobe;
 			mmc-hs400-1_8v;
 			mmc-hs200-1_8v;
 			//mmc-ddr-1_8v;
@@ -195,8 +281,15 @@
 			compatible = "zhihe,a2xx-dwcmshc";
 			reg = <0x00 0x00510000 0x0 0x10000>;
 			index = <0x1>;
-			clocks = <&clk PERI3_EMMC_SDIO_REF_CLK_CG_EN>;
-			clock-names = "core";
+			clocks = <&clk PERI3_EMMC_SDIO_REF_CLK_CG_EN>,
+					<&clk PERI3_SDIO_ACLK_EN>,
+					<&clk PERI3_SDIO_HCLK_EN>,
+					<&clk PERI3_SDIO_OSC_CLK_EN>,
+					<&clk PERI3_SDIO_X2X_ACLK_M_EN>,
+					<&clk PERI3_SDIO_X2X_ACLK_S_EN>;
+			clock-names = "core", "aclk", "hclk", "oscclk", "aclkm", "aclks";
+			resets = <&peri3_rst 6>, <&peri3_rst 7>, <&peri3_rst 8>;
+			reset-names = "rst_n", "x2x_arst_n_m", "x2x_arst_n_s";
 			sd-uhs-sdr104;
 			//sd-uhs-ddr50;
 			sd-uhs-sdr50;
@@ -214,6 +307,8 @@
 			interrupts = <331>;
 			clocks = <&clk PERI0_WDT0_PCLK_EN>;
 			u-boot,noautostart;
+			resets = <&peri0_rst 4>;
+			reset-names = "prst";
 			status = "okay";
 		};
 
@@ -337,7 +432,10 @@
 			#address-cells = <1>;
 			#size-cells =<0>;
 			reg = <0x00 0x01000000 0x0 0x4000>;
-			clocks = <&clk PERI1_QSPI0_SSI_CLK_EN>;
+			clocks = <&clk PERI1_QSPI0_SSI_CLK_EN>, <&clk PERI1_QSPI0_PCLK_EN>;
+			clock-names = "sclk", "pclk";
+			resets = <&peri1_rst_n0 20>, <&peri1_rst_n0 19>;
+			reset-names = "srst", "prst";
 		};
 
 		qspi1: spi@08428000 {
@@ -345,7 +443,10 @@
 			#address-cells = <1>;
 			#size-cells =<0>;
 			reg = <0x00 0x08428000 0x0 0x4000>;
-			clocks = <&clk PERI2_QSPI1_SSI_CLK_EN>;
+			clocks = <&clk PERI2_QSPI1_SSI_CLK_EN>, <&clk PERI2_QSPI1_PCLK_EN>;
+			clock-names = "sclk", "pclk";
+			resets = <&peri2_rst_n1 6>, <&peri2_rst_n1 5>;
+			reset-names = "srst", "prst";
 		};
 
 		spi0: spi@02023000 {
@@ -353,7 +454,10 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x00 0x02023000 0x0 0x1000>;
-			clocks = <&clk PERI1_SPI0_SSI_CLK_EN>;
+			clocks = <&clk PERI1_SPI0_SSI_CLK_EN>, <&clk PERI1_SPI0_PCLK_EN>;
+			clock-names = "sclk", "pclk";
+			resets = <&peri1_rst_n0 22>, <&peri1_rst_n0 21>;
+			reset-names = "srst", "prst";
 		};
 
 		spi1: spi@08413000 {
@@ -361,79 +465,106 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x00 0x08413000 0x0 0x1000>;
-			clocks = <&clk PERI2_SPI1_SSI_CLK_EN>;
+			clocks = <&clk PERI2_SPI1_SSI_CLK_EN>, <&clk PERI2_SPI1_PCLK_EN>;
+			clock-names = "sclk", "pclk";
+			resets = <&peri2_rst_n0 11>, <&peri2_rst_n0 10>;
+			reset-names = "srst", "prst";
 		};
 
 		i2c0: i2c@02020000 {
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x02020000 0x0 0x1000>;
-			clocks = <&clk PERI1_I2C0_IC_CLK_EN>;
+			clocks = <&clk PERI1_I2C0_IC_CLK_EN>, <&clk PERI1_I2C0_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri1_rst_n0 8>, <&peri1_rst_n0 9>;
+			reset-names = "rst", "prst";
 		};
 
 		i2c1: i2c@02021000{
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x02021000 0x0 0x1000>;
-			clocks = <&clk PERI1_I2C1_IC_CLK_EN>;
+			clocks = <&clk PERI1_I2C1_IC_CLK_EN>, <&clk PERI1_I2C1_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri1_rst_n0 10>, <&peri1_rst_n0 11>;
+			reset-names = "rst", "prst";
 		};
 
 		i2c2: i2c@02022000{
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x02022000 0x0 0x1000>;
-			clocks = <&clk PERI1_I2C2_IC_CLK_EN>;
+			clocks = <&clk PERI1_I2C2_IC_CLK_EN>, <&clk PERI1_I2C2_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri1_rst_n0 12>, <&peri1_rst_n0 13>;
+			reset-names = "rst", "prst";
 		};
 
 		i2c3: i2c@08415000{
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x08415000 0x0 0x1000>;
-			clocks = <&clk PERI2_I2C3_IC_CLK_EN>;
+			clocks = <&clk PERI2_I2C3_IC_CLK_EN>, <&clk PERI2_I2C3_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri2_rst_n0 21>, <&peri2_rst_n0 22>;
+			reset-names = "rst", "prst";
 		};
 
 		i2c4: i2c@08416000{
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x08416000 0x0 0x1000>;
-			clocks = <&clk PERI2_I2C4_IC_CLK_EN>;
+			clocks = <&clk PERI2_I2C4_IC_CLK_EN>, <&clk PERI2_I2C4_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri2_rst_n0 7>, <&peri2_rst_n0 8>;
+			reset-names = "rst", "prst";
 		};
 
 		i2c5: i2c@08417000{
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x08417000 0x0 0x1000>;
-			clocks = <&clk PERI2_I2C5_IC_CLK_EN>;
+			clocks = <&clk PERI2_I2C5_IC_CLK_EN>, <&clk PERI2_I2C5_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri2_rst_n0 23>, <&peri2_rst_n0 24>;
+			reset-names = "rst", "prst";
 		};
 
 		i2c6: i2c@08418000{
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x08418000 0x0 0x1000>;
-			clocks = <&clk PERI2_I2C6_IC_CLK_EN>;
+			clocks = <&clk PERI2_I2C6_IC_CLK_EN>, <&clk PERI2_I2C6_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri2_rst_n0 25>, <&peri2_rst_n0 26>;
+			reset-names = "rst", "prst";
 		};
 
 		i2c7: i2c@08419000{
 			compatible = "snps,designware-i2c";
 			reg = <0x00 0x08419000 0x0 0x1000>;
-			clocks = <&clk PERI2_I2C7_IC_CLK_EN>;
+			clocks = <&clk PERI2_I2C7_IC_CLK_EN>, <&clk PERI2_I2C7_PCLK_EN>;
+			clock-names = "clk", "pclk";
 			clock-frequency = <400000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			resets = <&peri2_rst_n0 27>, <&peri2_rst_n0 28>;
+			reset-names = "rst", "prst";
 		};
 	};
 };

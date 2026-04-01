@@ -10,3 +10,9 @@ config ZHIHE_EFUSE_CMD_SUPPORT
 	default n
 	help
 		Configure Zhihe efuse cmd line support
+
+config ZHIHE_ADCTEST_CMD_SUPPORT
+	bool "Configure Zhihe adctest cmd line support"
+	default n
+	help
+		Configure Zhihe adctest cmd line support

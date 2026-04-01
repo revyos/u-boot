@@ -772,6 +772,11 @@ int designware_i2c_of_to_plat(struct udevice *bus)
 		dev_err(bus, "failed to enable clock\n");
 		return ret;
 	}
+
+	ret = clk_get_by_name(bus, "pclk", &priv->pclk);
+	if (ret == 0) {
+		clk_enable(&priv->pclk);
+	}
 #endif
 
 	return 0;
@@ -801,6 +806,7 @@ int designware_i2c_remove(struct udevice *dev)
 
 #if CONFIG_IS_ENABLED(CLK)
 	clk_disable(&priv->clk);
+	clk_disable(&priv->pclk);
 #endif
 
 	return reset_release_bulk(&priv->resets);

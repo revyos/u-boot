@@ -59,7 +59,8 @@
 
 #define P_VENDOR_SPECIFIC_AREA 0x500
 #define EMMC_CTRL_R (P_VENDOR_SPECIFIC_AREA + 0x2c)
-#define EMMC_CARD 0x1 //1bit
+#define EMMC_CARD BIT(0) //CARD_IS_EMMC
+#define EMMC_ESE  BIT(8) //ENH_STROBE_ENABLE
 
 #define AT_CTRL_R   (P_VENDOR_SPECIFIC_AREA + 0x40) // 32bit
 #define AT_EN 0x0             //1bit

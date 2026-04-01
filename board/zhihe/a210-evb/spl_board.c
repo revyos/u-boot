@@ -142,6 +142,9 @@ static void ss_sam_en(void)
 static int init_chip(int chip_id, int num_chips)
 {
 	int ret;
+
+	printf("## Init chip%d\n", chip_id);
+
 	chip_set(chip_id);
 
 	cpu_ss_init();
@@ -149,9 +152,11 @@ static int init_chip(int chip_id, int num_chips)
 	ddr_low_power_init();
 
 	/* DDR init */
+	printf("   DDR type:%d\n", spl_get_ddr_type());
 	ret = ddr_init(spl_get_ddr_type());
 
 	/* CPR init */
+	printf("   CPR init\n");
 	if (num_chips > 1) {
 		ss_cpr_init(SS_CFG_D2D, chip_id);
 	} else {
@@ -177,10 +182,9 @@ static void init_all_chips(void)
 		die_count = 1;
 
 	for (int i = 0; i < die_count; i++) {
-		printf("Chip: init chip-%d\n", i);
 		ret = init_chip(i, die_count);
 		if (ret) {
-			printf("spl: init chip-%d fail\n", i);
+			printf("Init chip%d fail\n", i);
 			while(1);
 		}
 	}
@@ -337,11 +341,13 @@ void spl_board_check(void)
 	enum board_type _board_type;
 	enum ddr_type _ddr_type;
 
+	printf("## Board check\n");
+
 	if (loader_get_die_count() > 1) {
 		_board_type = BOARD_A210_D2D;
 		_ddr_type = DDR_LP4X_4266_1Rank_4GBx2;
 		spl_set_board_info(_board_type, _ddr_type);
-		printf("Board info: bid=%d did=%d\n", _board_type, _ddr_type);
+		printf("   bid:%d\n", _board_type);
 		return;
 	}
 
@@ -349,7 +355,7 @@ void spl_board_check(void)
 
 	u64 adc_ch0_mv = adc_read(0, 16);
 	u64 adc_ch2_mv = adc_read(2, 16);
-	printf("Board check: ch0=%llumV ch2=%llumV\n", adc_ch0_mv, adc_ch2_mv);
+	printf("   adc ch0:%llumV ch2:%llumV\n", adc_ch0_mv, adc_ch2_mv);
 
 	/* Board check */
 	if (adc_ch2_mv >= 800 && adc_ch2_mv <= 1300) {
@@ -359,7 +365,7 @@ void spl_board_check(void)
 		/* BOARD_A210_DEV ch2 (1400mv ~ 1900mv) */
 		_board_type = BOARD_A210_DEV;
 	} else {
-		printf("Board info: Unknown\n");
+		printf("Unknown board type\n");
 		while(1);
 	}
 
@@ -370,7 +376,7 @@ void spl_board_check(void)
 		} else if (adc_ch0_mv >= 500 && adc_ch0_mv <= 700) {
 			_ddr_type = DDR_LP4X_4266_1Rank_4GBx2;
 		} else if (adc_ch0_mv >= 1100 && adc_ch0_mv <= 1300) {
-			_ddr_type = DDR_LP4X_4266_2Rank_8GBx2;
+			_ddr_type = DDR_LP4X_3733_2Rank_8GBx2;
 		}
 	} else if (_board_type == BOARD_A210_DEV) {
 		if (adc_ch2_mv >= 1700 && adc_ch2_mv <= 1900) {
@@ -379,10 +385,10 @@ void spl_board_check(void)
 	}
 
 	if (_ddr_type == DDR_TYPE_UNKNOWN) {
-		printf("Board info: Unknown DDR type\n");
+		printf("Unknown DDR type\n");
 		while(1);
 	}
 
 	spl_set_board_info(_board_type, _ddr_type);
-	printf("Board info: bid=%d did=%d\n", _board_type, _ddr_type);
+	printf("   bid:%d\n", _board_type);
 }

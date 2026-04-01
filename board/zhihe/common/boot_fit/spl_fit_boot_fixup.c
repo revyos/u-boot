@@ -11,6 +11,8 @@
 #include <mapmem.h>
 #include <spl.h>
 #include <sysinfo.h>
+#include <opensbi.h>
+
 #include "../include/board_boot.h"
 #include "../include/board_check.h"
 #include "../include/board_porting.h"
@@ -104,6 +106,24 @@ const char * board_get_fit_config(void)
 /******************************
  * Main fixups
  ******************************/
+typedef void (*opensbi_entry_t)(ulong hartid, ulong dtb, ulong info);
+ __weak void board_spl_call_opensbi(uintptr_t entry, ulong hartid, ulong dtb, ulong info)
+{
+    opensbi_entry_t opensbi_entry = (opensbi_entry_t)entry;
+    opensbi_entry(hartid, dtb, info);
+}
+
+static uintptr_t s_opensbi_entry;
+static void fixup_opensbi_entry(ulong hartid, ulong dtb, ulong info)
+{
+    struct fw_dynamic_info *opensbi_info = (struct fw_dynamic_info *)info;
+
+	if (env_get_ulong("boot_loglevel", 10, 0) < 1)
+        opensbi_info->options = 1; // disable opensbi log
+
+	board_spl_call_opensbi(s_opensbi_entry, hartid, dtb, info);
+}
+
 /*
  * Fix the issue where the full fit mode cannot access the next level of OS entry
  * spl_perform_fixups is weak imp at u-boot/common/spl/spl.c
@@ -148,6 +168,12 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
 
     /* 2. Set board type pass to u-boot */
     spl_set_binfo_to_uboot_fdt(fdt_uboot);
+
+    /*
+     * OpenSBI jump fixup
+     */
+    s_opensbi_entry = spl_image->entry_point;
+    spl_image->entry_point = (uintptr_t)fixup_opensbi_entry;
 }
 
 #ifdef CONFIG_SPL_FIT_SIGNATURE
@@ -179,6 +205,9 @@ int board_fit_each_image_post_load(const void *fit, int noffset, ulong loadaddr,
     if (loadaddr == 0) {
         return -1;
     }
+
+	if (env_get_ulong("boot_loglevel", 10, 0) < 3)
+		return 0;
 
     //printf("fit %p, noffset %d\n", fit, noffset);
     noffset_hash = fdt_subnode_offset(fit, noffset, "hash");

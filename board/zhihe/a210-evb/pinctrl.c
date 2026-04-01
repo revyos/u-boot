@@ -449,7 +449,7 @@ static int gmac_phy_rst(const char *str_gpio)
 
 int uboot_gpio_pin_init(const char *board_name)
 {
-	// Common IO pamdmux
+	/* Common IO pamdmux */
 	// uart4
 	gpio_pin_mux(GPIO2_0, 1);
 	gpio_pin_mux(GPIO2_1, 1);

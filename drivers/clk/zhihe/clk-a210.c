@@ -218,6 +218,14 @@ static void a210_register_clock(struct udevice *dev)
 		a210_clk_gate("peri1_gmac1_aclk", "peri1_mst_aclk", priv->peri1_sysreg_base + 0x200, 2));
 	clk_dm(PERI1_GMAC1_HCLK_EN,
 		a210_clk_gate("peri1_gmac1_hclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x200, 3));
+	clk_dm(PERI1_GMAC0_X2H_ACLK_EN,
+		a210_clk_gate("peri1_gmac0_x2h_aclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x204, 0));
+	clk_dm(PERI1_GMAC0_X2H_HCLK_EN,
+		a210_clk_gate("peri1_gmac0_x2h_hclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x204, 1));
+	clk_dm(PERI1_GMAC1_X2H_ACLK_EN,
+		a210_clk_gate("peri1_gmac1_x2h_aclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x204, 2));
+	clk_dm(PERI1_GMAC1_X2H_HCLK_EN,
+		a210_clk_gate("peri1_gmac1_x2h_hclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x204, 3));
 	clk_dm(PERI1_GPIO0_PCLK_EN,
 		a210_clk_gate("peri1_clkgen_gpio0_pclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x200, 5));
 	clk_dm(PERI1_GPIO1_PCLK_EN,
@@ -232,7 +240,16 @@ static void a210_register_clock(struct udevice *dev)
 		a210_clk_gate("peri1_clkgen_spi0_ssi_clk", "peri1_spi_ssi_clk", priv->peri1_sysreg_base + 0x200, 23));
 	clk_dm(PERI1_QSPI0_SSI_CLK_EN,
 		a210_clk_gate("peri1_clkgen_qspi0_ssi_clk", "peri1_qspi_ssi_clk", priv->peri1_sysreg_base + 0x200, 21));
-
+	clk_dm(PERI1_I2C0_PCLK_EN,
+		a210_clk_gate("peri1_clkgen_i2c0_pclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x200, 9));
+	clk_dm(PERI1_I2C1_PCLK_EN,
+		a210_clk_gate("peri1_clkgen_i2c1_pclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x200, 11));
+	clk_dm(PERI1_I2C2_PCLK_EN,
+		a210_clk_gate("peri1_clkgen_i2c2_pclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x200, 13));
+	clk_dm(PERI1_SPI0_PCLK_EN,
+		a210_clk_gate("peri1_clkgen_spi0_pclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x200, 22));
+	clk_dm(PERI1_QSPI0_PCLK_EN,
+		a210_clk_gate("peri1_clkgen_qspi0_pclk", "top_cfg_aclk", priv->peri1_sysreg_base + 0x200, 20));
 	/* PERI2 SS */
 	clk_dm(PERI2_SPI1_SSI_CLK_EN,
 		a210_clk_gate("peri2_clkgen_spi1_ssi_clk", "peri2_spi_ssi_clk", priv->peri2_sysreg_base + 0x200, 3));
@@ -254,14 +271,47 @@ static void a210_register_clock(struct udevice *dev)
 		a210_clk_gate("peri2_clkgen_i2c6_ic_clk", "i2c_ic_clk", priv->peri2_sysreg_base + 0x200, 23));
 	clk_dm(PERI2_I2C7_IC_CLK_EN,
 		a210_clk_gate("peri2_clkgen_i2c7_ic_clk", "i2c_ic_clk", priv->peri2_sysreg_base + 0x200, 25));
-
+	clk_dm(PERI2_I2C3_PCLK_EN,
+		a210_clk_gate("peri2_clkgen_i2c3_pclk", "top_cfg_aclk", priv->peri2_sysreg_base + 0x200, 16));
+	clk_dm(PERI2_I2C4_PCLK_EN,
+		a210_clk_gate("peri2_clkgen_i2c4_pclk", "top_cfg_aclk", priv->peri2_sysreg_base + 0x200, 18));
+	clk_dm(PERI2_I2C5_PCLK_EN,
+		a210_clk_gate("peri2_clkgen_i2c5_pclk", "top_cfg_aclk", priv->peri2_sysreg_base + 0x200, 20));
+	clk_dm(PERI2_I2C6_PCLK_EN,
+		a210_clk_gate("peri2_clkgen_i2c6_pclk", "top_cfg_aclk", priv->peri2_sysreg_base + 0x200, 22));
+	clk_dm(PERI2_I2C7_PCLK_EN,
+		a210_clk_gate("peri2_clkgen_i2c7_pclk", "top_cfg_aclk", priv->peri2_sysreg_base + 0x200, 24));
+	clk_dm(PERI2_SPI1_PCLK_EN,
+		a210_clk_gate("peri2_clkgen_spi1_pclk", "top_cfg_aclk", priv->peri2_sysreg_base + 0x200, 9));
+	clk_dm(PERI2_QSPI1_PCLK_EN,
+		a210_clk_gate("peri2_clkgen_qspi1_pclk", "top_cfg_aclk", priv->peri2_sysreg_base + 0x204, 11));
 	/* PERI3 SS */
+	clk_dm(PERI3_GPIO4_PCLK_EN,
+		a210_clk_gate("peri3_clkgen_gpio4_pclk", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 20));
 	clk_dm(PERI3_EMMC_SDIO_REF_CLK,
 		a210_clk_fixed_factor("peri3_emmc_sdio_ref_clk", "emmc_ref_clk", 4));	/* Note: base clk is div 4 to 196M*/
 	clk_dm(PERI3_EMMC_SDIO_REF_CLK_CG_EN,
 		a210_clk_gate("peri3_clkgen_sdio_ref_clk", "peri3_emmc_sdio_ref_clk", priv->peri3_sysreg_base + 0x200, 2));
-	clk_dm(PERI3_GPIO4_PCLK_EN,
-		a210_clk_gate("peri3_clkgen_gpio4_pclk", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 20));
+	clk_dm(PERI3_EMMC_ACLK_EN,
+		a210_clk_gate("peri3_clkgen_sdio_aclk", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 8));
+	clk_dm(PERI3_EMMC_HCLK_EN,
+		a210_clk_gate("peri3_clkgen_sdio_hclk", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 9));
+	clk_dm(PERI3_EMMC_OSC_CLK_EN,
+		a210_clk_gate("peri3_clkgen_sdio_osc_clk", "aon_osc_clk_logic", priv->peri3_sysreg_base + 0x200, 10));
+	clk_dm(PERI3_EMMC_X2X_ACLK_M_EN,
+		a210_clk_gate("peri3_clkgen_sdio_x2x_aclk_m", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 11));
+	clk_dm(PERI3_EMMC_X2X_ACLK_S_EN,
+		a210_clk_gate("peri3_clkgen_sdio_x2x_aclk_s", "peri3_mst_aclk", priv->peri3_sysreg_base + 0x200, 12));
+	clk_dm(PERI3_SDIO_ACLK_EN,
+		a210_clk_gate("peri3_clkgen_sdio_aclk", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 8));
+	clk_dm(PERI3_SDIO_HCLK_EN,
+		a210_clk_gate("peri3_clkgen_sdio_hclk", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 9));
+	clk_dm(PERI3_SDIO_OSC_CLK_EN,
+		a210_clk_gate("peri3_clkgen_sdio_osc_clk", "aon_osc_clk_logic", priv->peri3_sysreg_base + 0x200, 10));
+	clk_dm(PERI3_SDIO_X2X_ACLK_M_EN,
+		a210_clk_gate("peri3_clkgen_sdio_x2x_aclk_m", "top_cfg_aclk", priv->peri3_sysreg_base + 0x200, 11));
+	clk_dm(PERI3_SDIO_X2X_ACLK_S_EN,
+		a210_clk_gate("peri3_clkgen_sdio_x2x_aclk_s", "peri3_mst_aclk", priv->peri3_sysreg_base + 0x200, 12));
 }
 
 static int a210_parse_regbase(struct udevice *dev)

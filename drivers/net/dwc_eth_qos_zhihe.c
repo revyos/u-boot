@@ -45,86 +45,114 @@
 #define GMAC_CTRL_RGMII     0x1
 #define GMAC_CTRL_RMII      0x4
 
+/* Clocks resouce 
+ * The following resource list corresponds to 
+ * "aclk", "hclk", "x2h_aclk", and "x2h_hclk" respectively.
+ */
+#define CLK_RES_COUNT 4
+#define CLK_RES_NAMES {"aclk", "hclk", "x2h_aclk", "x2h_hclk"}
+#define CLK_RES_INIT(clks, eqos) do { \
+	clks[0] = &eqos->clk_slave_bus; \
+	clks[1] = &eqos->clk_master_bus; \
+	clks[2] = &eqos->clk_rx; \
+	clks[3] = &eqos->clk_tx; \
+} while(0) 
+
+static int zhihe_resets_deassert(struct udevice *dev)
+{
+	int i;
+	int ret;
+	struct reset_ctl resets[4];
+	const char *reset_names[] = {"arst", "hrst", "x2h_arst", "x2h_hrst"};
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	/* Check resets */
+	for (i = 0; i < sizeof(resets) / sizeof(struct reset_ctl); i++) {
+		ret = reset_get_by_name(dev, reset_names[i], &resets[i]);
+		if (ret) {
+			printf("Failed to get %s\n", reset_names[i]);
+			goto err_resets;
+		}
+	}
+
+	/* Deassert all resets */
+	for (i = 0; i < sizeof(resets) / sizeof(struct reset_ctl); i++) {
+		reset_deassert(&resets[i]);
+	}
+	return 0;
+
+err_resets:
+	for (int j = 0; j < i; j++) {
+		reset_free(&resets[j]);
+	}
+	return -EINVAL;
+}
+
 static ulong eqos_get_tick_clk_rate_zhihe(struct udevice *dev)
 {
 	struct eqos_priv __maybe_unused *eqos = dev_get_priv(dev);
 
-	if (!CONFIG_IS_ENABLED(CLK))
-		return 0;
+	/* hclk -> clk_master_bus */
 
 	return clk_get_rate(&eqos->clk_master_bus);
 }
 
 static int eqos_start_clks_zhihe(struct udevice *dev)
 {
-	struct eqos_priv __maybe_unused *eqos = dev_get_priv(dev);
+	int iclk;
 	int ret;
-
-	if (!CONFIG_IS_ENABLED(CLK))
-		return 0;
+	struct eqos_priv __maybe_unused *eqos = dev_get_priv(dev);
+	struct clk *clks[CLK_RES_COUNT];
 
 	dev_dbg(dev, "%s:\n", __func__);
 
-	ret = clk_enable(&eqos->clk_master_bus);
+	/* Enable all clks */
+	CLK_RES_INIT(clks, eqos);
+	for(iclk = 0; iclk < CLK_RES_COUNT; iclk++) {
+		ret = clk_enable(clks[iclk]);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable clk_master_bus\n");
+			goto err_clks;
+		}
+	}
+	ret = zhihe_resets_deassert(dev);
 	if (ret < 0) {
-		dev_err(dev, "clk_enable(clk_master_bus) failed: %d\n", ret);
-		goto err;
+		goto err_resets;
 	}
 
-	ret = clk_enable(&eqos->clk_ck);
-	if (ret < 0) {
-		dev_err(dev, "clk_enable(clk_ck) failed: %d\n", ret);
-		goto err_disable_clk_master_bus;
-	}
-
-	// enable gmac clk
+	/* Enable gmac clkctrl */
 	writel(GMAC_CLKTRL_EN_ALL, (void __iomem *)(eqos->regs + GMAC_CLKCTRL));
 
 	dev_dbg(dev, "%s: OK\n", __func__);
-
 	return 0;
 
-err_disable_clk_master_bus:
-	clk_disable(&eqos->clk_master_bus);
-err:
-	dev_dbg(dev, "%s: FAILED: %d\n", __func__, ret);
+err_clks:
+	for (int j = 0; j < iclk; j++) {
+		clk_disable(clks[j]);
+	}
 
+err_resets:
+	dev_dbg(dev, "%s: FAILED: %d\n", __func__, ret);
 	return ret;
 }
 
 static int eqos_stop_clks_zhihe(struct udevice *dev)
 {
+	struct clk *clks[CLK_RES_COUNT];
 	struct eqos_priv __maybe_unused *eqos = dev_get_priv(dev);
-
-	if (!CONFIG_IS_ENABLED(CLK))
-		return 0;
 
 	dev_dbg(dev, "%s:\n", __func__);
 
-	clk_disable(&eqos->clk_ck);
-	clk_disable(&eqos->clk_master_bus);
-
-	dev_dbg(dev, "%s: OK\n", __func__);
+	/* Disable all clks */
+	CLK_RES_INIT(clks, eqos);
+	for (int i = 0; i < CLK_RES_COUNT; i++) {
+		clk_disable(clks[i]);
+	}
 
 	return 0;
 }
-#if 0
-static int parse_speed_from_device_tree(const void *fdt, int node_offset)
-{
-	int speed;
-	const __be32 *prop;
 
-	prop = fdt_getprop(fdt, node_offset, "speed", NULL);
-	if (!prop) {
-		pr_err("Error: 'speed' property not found\n");
-		return -1;
-	}
-
-	speed = fdt32_to_cpu(*prop);
-
-	return speed;
-}
-#endif
 static int eqos_set_tx_clk_speed_zhihe(struct udevice *dev)
 {
 	struct eqos_priv *eqos = dev_get_priv(dev);
@@ -178,21 +206,45 @@ static int eqos_set_tx_clk_speed_zhihe(struct udevice *dev)
 	return 0;
 }
 
+static int eqos_start_resets_zhihe(struct udevice *dev)
+{
+	struct eqos_priv *eqos = dev_get_priv(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (dm_gpio_is_valid(&eqos->phy_reset_gpio)) {
+		dm_gpio_set_value(&eqos->phy_reset_gpio, 1);
+		/* At least 10ms in databook 6.5 Reset */
+		mdelay(20);
+		dm_gpio_set_value(&eqos->phy_reset_gpio, 0);
+	}
+	return 0;
+}
+
+static int eqos_stop_resets_zhihe(struct udevice *dev)
+{
+	//struct eqos_priv *eqos = dev_get_priv(dev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	return 0;
+}
+
 static int eqos_probe_resources_zhihe(struct udevice *dev)
 {
 	struct eqos_priv *eqos = dev_get_priv(dev);
 	int ret;
+	struct clk *clks[CLK_RES_COUNT];
+	const char *clk_names[] = CLK_RES_NAMES;
 
-	ret = clk_get_by_name(dev, "master_bus", &eqos->clk_master_bus);
-	if (ret) {
-		dev_err(dev, "clk_get_by_name(master_bus) failed: %d\n", ret);
-		goto err_probe;
-	}
-
-	ret = clk_get_by_name(dev, "aclk", &eqos->clk_ck);
-	if (ret) {
-		dev_err(dev, "clk_get_by_name(aclk) failed: %d\n", ret);
-		goto err_probe;
+	/* Get all clk handle */
+	CLK_RES_INIT(clks, eqos);
+	for(int i = 0; i < CLK_RES_COUNT; i++) {
+		ret = clk_get_by_name(dev, clk_names[i], clks[i]);
+		if (ret) {
+			dev_err(dev, "Failed to get %s\n", clk_names[i]);
+			goto err_probe;
+		}
 	}
 
 	/* Get reset gpio pin (optional) */
@@ -202,30 +254,12 @@ static int eqos_probe_resources_zhihe(struct udevice *dev)
 		pr_warn("No phy reset gpio provided: %d\n", ret);
 
 	dev_dbg(dev, "%s: OK\n", __func__);
-
 	return 0;
 
 err_probe:
-
 	dev_dbg(dev, "%s: returns %d\n", __func__, ret);
 
 	return ret;
-}
-
-static int eqos_start_resets_zhihe(struct udevice *dev)
-{
-	struct eqos_priv *eqos = dev_get_priv(dev);
-
-	debug("%s(dev=%p):\n", __func__, dev);
-
-	if (dm_gpio_is_valid(&eqos->phy_reset_gpio)) {
-		dm_gpio_set_value(&eqos->phy_reset_gpio, 1);
-		/* At least 10ms in databook 6.5 Reset */
-		mdelay(20);
-		dm_gpio_set_value(&eqos->phy_reset_gpio, 0);
-	}
-
-	return 0;
 }
 
 static int eqos_remove_resources_zhihe(struct udevice *dev)
@@ -247,7 +281,7 @@ static struct eqos_ops eqos_zhihe_ops = {
 	.eqos_flush_buffer = eqos_flush_buffer_generic,
 	.eqos_probe_resources = eqos_probe_resources_zhihe,
 	.eqos_remove_resources = eqos_remove_resources_zhihe,
-	.eqos_stop_resets = eqos_null_ops,
+	.eqos_stop_resets = eqos_stop_resets_zhihe,
 	.eqos_start_resets = eqos_start_resets_zhihe,
 	.eqos_stop_clks = eqos_stop_clks_zhihe,
 	.eqos_start_clks = eqos_start_clks_zhihe,

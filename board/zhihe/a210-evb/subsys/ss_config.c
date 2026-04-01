@@ -612,18 +612,18 @@ void peri_cpr_init(void)
 {
 	debug("%s\n", __func__);
 
-	chip_wr(AP_PERI0_SYSREG_BADDR + 0x200, 0xffffffff); // PERI0_CLK_EN
-	chip_wr(AP_PERI0_SYSREG_BADDR + 0x400, 0xffffffff); // PERI0_RST_N
-	chip_wr(AP_PERI1_SYSREG_BADDR + 0x200, 0xffffffff); // PERI1_CLK_EN_0
-	chip_wr(AP_PERI1_SYSREG_BADDR + 0x204, 0xffffffff); // PERI1_CLK_EN_1
-	chip_wr(AP_PERI1_SYSREG_BADDR + 0x400, 0xffffffff); // PERI1_RST_N_0
-	chip_wr(AP_PERI1_SYSREG_BADDR + 0x404, 0xffffffff); // PERI1_RST_N_1
-	chip_wr(AP_PERI2_SYSREG_BADDR + 0x200, 0xffffffff); // PERI2_CLK_EN_0
-	chip_wr(AP_PERI2_SYSREG_BADDR + 0x204, 0xffffffff); // PERI2_CLK_EN_1
-	chip_wr(AP_PERI2_SYSREG_BADDR + 0x400, 0xffffffff); // PERI2_RST_N_0
-	chip_wr(AP_PERI2_SYSREG_BADDR + 0x404, 0xffffffff); // PERI2_RST_N_1
-	chip_wr(AP_PERI3_SYSREG_BADDR + 0x200, 0xffffffff); // PERI3_CLK_EN
-	chip_wr(AP_PERI3_SYSREG_BADDR + 0x400, 0xffffffff); // PERI3_RST_N
+	chip_wr(AP_PERI0_SYSREG_BADDR + 0x200, 0x00000080); // PERI0_CLK_EN disable time0~1 mbox0~1 wdt0
+	chip_wr(AP_PERI0_SYSREG_BADDR + 0x400, 0x00000000); // PERI0_RST_N disable time0~1 mbox0~1 wdt0
+	chip_wr(AP_PERI1_SYSREG_BADDR + 0x200, 0x000300F0); // PERI1_CLK_EN_0 disable i2s0 pwm0 qspi0 spi0 uart0~3 i2c0~2 gmac0~1
+	chip_wr(AP_PERI1_SYSREG_BADDR + 0x204, 0xFC1FC0F0); // PERI1_CLK_EN_1 disable can0~1 gmac0~2 zgmac_x2h
+	chip_wr(AP_PERI1_SYSREG_BADDR + 0x400, 0x000180F0); // PERI1_RST_N_0 disable i2s0 pwm0 qspi0 spi0 uart0~3 i2c0~2 gmac0~2
+	chip_wr(AP_PERI1_SYSREG_BADDR + 0x404, 0xFC7801F8); // PERI1_RST_N_1 gmac0~2
+	chip_wr(AP_PERI2_SYSREG_BADDR + 0x200, 0x0000E514); // PERI2_CLK_EN_0 disable can2 spi1 uart5~6 i2s1~3 i2c3~7
+	chip_wr(AP_PERI2_SYSREG_BADDR + 0x204, 0xFFFFF000); // PERI2_CLK_EN_1 disable pwm1~2 uart7~8 qspi1
+	chip_wr(AP_PERI2_SYSREG_BADDR + 0x400, 0x001C3060); // PERI2_RST_N_0
+	chip_wr(AP_PERI2_SYSREG_BADDR + 0x404, 0x00000000); // PERI2_RST_N_1
+	chip_wr(AP_PERI3_SYSREG_BADDR + 0x200, 0xFFFF60FC); // PERI3_CLK_EN disable adc sdhci dma
+	chip_wr(AP_PERI3_SYSREG_BADDR + 0x400, 0xfffff7fc); // PERI3_RST_N disable adc dma
 	chip_wr(AP_PERI1_SYSREG_BADDR + 0X0, 0x1); // PERI1 I2S0_EN
 	chip_wr(AP_PERI2_SYSREG_BADDR + 0X0, 0x15); // PERI2 I2S1/2/3_EN
 }

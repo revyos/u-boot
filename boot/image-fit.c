@@ -483,6 +483,11 @@ void fit_image_print(const void *fit, int image_noffset, const char *p)
 	if (!CONFIG_IS_ENABLED(FIT_PRINT))
 		return;
 
+#ifndef USE_HOSTCC
+	if (env_get_ulong("boot_loglevel", 10, 0) < 2)
+		return;
+#endif
+
 	/* Mandatory properties */
 	ret = fit_get_desc(fit, image_noffset, &desc);
 	printf("%s  Description:  ", p);

@@ -73,7 +73,7 @@ static int load_fnv_to_mem(void)
     ret = get_factory_offset();
 
     if (ret != CMD_RET_SUCCESS) {
-        return ret;
+        return 0;
     }
 
     /* load data */
@@ -83,7 +83,15 @@ static int load_fnv_to_mem(void)
     ret = run_command(fnv_priv.runcmd_buf, 0);
 
     if (ret != CMD_RET_SUCCESS) {
-        return ret;
+        return 0;
+    }
+
+    /* crc check */
+    uint32_t crc;
+    env_t *ep = (env_t *)fnv_priv.read_buf;
+    memcpy(&crc, &ep->crc, sizeof(crc));
+    if (crc32(0, ep->data, ENV_SIZE) != crc) {
+        return 0;
     }
 
     /* Get nv name to export_names */

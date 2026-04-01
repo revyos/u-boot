@@ -10,7 +10,16 @@
 /* ENV Flags */
 #define CFG_ENV_FLAGS_LIST_STATIC "^nv_.*#$:so,"
 
-#define EVN_COMMON \
+/*
+ * boot_loglevel
+ *    0: Disable OpenSBI Print, FIT_PRINT, Image Hash info
+ *    1: Enable OpenSBI Print
+ *    2: Enable FIT_PRINT
+ *    3: Enable Image Hash info
+ */
+#define ENV_COMMON \
+	"boot_loglevel=0\0" \
+	"autoload=no\0" \
 	"tty_dev=ttyS4\0" \
 	"kernel_loglevel=4\0" \
 	"tmp_addr=0x8d000000\0" \
@@ -34,7 +43,7 @@
 	"ramdisk_size=204800\0" \
 	"set_bargs_pre=setenv barg_pre console=${tty_dev},${baudrate} root=${root_device} init=${init_file} rootwait rw earlycon clk_ignore_unused loglevel=${kernel_loglevel} crashkernel=${kdump_buf}\0"
 
-#define EVN_PARTITION \
+#define ENV_PARTITION \
 	"fastboot.has-slot:mmc0boot0=no\0" \
 	"fastboot.has-slot:mmc0boot1=no\0" \
 	"fastboot.has-slot:boot_a=no\0" \
@@ -50,8 +59,8 @@
 
 #ifdef CONFIG_RISCV_SMODE
 #define BOOT_FIT \
-	"loadkernel=ext4load ${boot_device} ${kernel_addr}  ${kernel_file}; md5sum ${kernel_addr} $filesize\0" \
-	"loadinitrd=ext4load ${boot_device} ${initrd_addr}  ${initrd_file}; setenv initrd_size $filesize\0" \
+	"loadkernel=ext4load ${boot_device} ${kernel_addr} ${kernel_file}; if test $boot_loglevel -ge 3; then md5sum ${kernel_addr} $filesize; fi\0" \
+	"loadinitrd=ext4load ${boot_device} ${initrd_addr} ${initrd_file}; setenv initrd_size $filesize\0" \
 	"load_image=run loadkernel; run loadinitrd\0" \
 	"bootcmd=run select_slot; run load_image; run set_bargs_pre; setenv bootargs ${barg_pre}; booti $kernel_addr $initrd_addr:$initrd_size $dtb_addr;\0" \
 	"altbootcmd=run rollback; run rollback_finish; reset;\0"
@@ -59,26 +68,14 @@
 #define BOOT_FIT
 #endif
 
-#ifdef CONFIG_RISCV_MMODE
-#define BOOT_XT \
-	"loadfdt=ext4load    ${boot_device} ${dtb_addr}     ${dtb_file}\0" \
-	"loadkernel=ext4load ${boot_device} ${kernel_addr}  ${kernel_file}\0" \
-	"loadsbi=ext4load    ${boot_device} ${opensbi_addr} ${opensbi_file}\0" \
-	"loadinitrd=ext4load ${boot_device} ${initrd_addr}  ${initrd_file}; setenv initrd_size $filesize\0" \
-	"load_image=run loadfdt; run loadsbi; run loadkernel; run loadinitrd;\0" \
-	"bootcmd=run select_slot; run load_image; run set_bargs_pre; setenv bootargs ${barg_pre}; booti $kernel_addr $initrd_addr:$initrd_size $dtb_addr $opensbi_addr;\0"
-#else
-#define BOOT_XT
-#endif
-
 #define BOOT_NFS \
 	"nfsroot=10.0.11.6:/mnt/ssd/rootfs\0" \
 	"set_nfsbootargs=setenv bootargs ip=${ipaddr}::${gatewayip}:${netmask}:myhostname:eth0:off nfsroot=${nfsroot},proto=tcp,nfsvers=4,rw ${barg_pre}\0" \
-	"boot_nfs=setenv autoload no; dhcp; run select_slot; setenv root_device /dev/nfs; run set_bargs_pre; run set_nfsbootargs; booti $kernel_addr - $dtb_addr\0"
+	"boot_nfs=dhcp; run select_slot; setenv root_device /dev/nfs; run set_bargs_pre; run set_nfsbootargs; booti $kernel_addr - $dtb_addr\0"
 
 #define CFG_EXTRA_ENV_SETTINGS \
-	EVN_COMMON \
-	EVN_PARTITION \
+	ENV_COMMON \
+	ENV_PARTITION \
 	"devtype=mmc\0" \
 	"devnum=0\0" \
 	"active_slot=a\0" \
@@ -113,7 +110,6 @@
 	"rollback=run rollback_${active_slot}\0" \
 	"rollback_finish=if test $bootcount_mode -eq 0; then setenv upgrade_available 0; fi; setenv bootcount 0; saveenv;\0" \
 	BOOT_FIT \
-	BOOT_XT \
 	BOOT_NFS \
 	"\0"
 #endif /* __CONFIG_A210_EVB_H */

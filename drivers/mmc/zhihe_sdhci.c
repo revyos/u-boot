@@ -7,6 +7,7 @@
 #include <log.h>
 #include <linux/delay.h>
 #include <clk.h>
+#include <reset.h>
 #include <dm.h>
 #include <malloc.h>
 #include <sdhci.h>
@@ -229,18 +230,16 @@ static void zhihe_sdhci_set_voltage(struct sdhci_host *host)
 	struct snps_sdhci_plat *plat = dev_get_plat(host->mmc->dev);
 	u32 reg;
 
-	if ((mmc->selected_mode > MMC_DDR_52) && (mmc->signal_voltage <= MMC_SIGNAL_VOLTAGE_180)) {
+	if (mmc->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
 		reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		reg |= SDHCI_CTRL_VDD_180;
 		sdhci_writew(host, reg, SDHCI_HOST_CONTROL2);
-	} else if ((mmc->selected_mode <= MMC_DDR_52) && (mmc->signal_voltage > MMC_SIGNAL_VOLTAGE_180)) {
+	} else {
 		reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		reg &= ~SDHCI_CTRL_VDD_180;
 		if (plat->io_fixed_1v8)
 			reg |= SDHCI_CTRL_VDD_180;
 		sdhci_writew(host, reg, SDHCI_HOST_CONTROL2);
-	} else {
-		debug("Warning: mode %d, voltage %d\n", mmc->selected_mode, mmc->signal_voltage);
 	}
 }
 
@@ -291,6 +290,17 @@ static void zhihe_sdhci_set_uhs_timing(struct sdhci_host *host)
 	sdhci_writew(host, reg, SDHCI_HOST_CONTROL2);
 }
 
+static int zhihe_sdhci_set_enhanced_strobe(struct sdhci_host *host)
+{
+	u32 reg = sdhci_readw(host, EMMC_CTRL_R);
+
+	/* Set ENH_STROBE_ENABLE bit */
+	reg |= EMMC_ESE;
+	sdhci_writew(host, reg, EMMC_CTRL_R);
+
+	return 0;
+}
+
 static void zhihe_sdhci_set_control_reg(struct sdhci_host *host)
 {
 	struct mmc *mmc = (struct mmc *)host->mmc;
@@ -308,9 +318,10 @@ static void zhihe_sdhci_set_control_reg(struct sdhci_host *host)
 		reg &= ~EMMC_CARD;
 	} else {
 		reg |= EMMC_CARD;
+		reg &= ~EMMC_ESE;
 	}
 
-	sdhci_writeb(host, reg, EMMC_CTRL_R);
+	sdhci_writew(host, reg, EMMC_CTRL_R);
 
 	/*
 	 * sdhci_set_control_reg 
@@ -329,7 +340,7 @@ static void zhihe_sdhci_set_control_reg(struct sdhci_host *host)
 		sdhci_phy_1_8v_init(host, delay);
 	}
 
-	if (mmc->selected_mode == MMC_HS_400) {
+	if (mmc->selected_mode == MMC_HS_400 || mmc->selected_mode == MMC_HS_400_ES) {
 		//disable auto tuning
 		reg = sdhci_readl(host, AT_CTRL_R);
 		reg &= ~(1 << AT_EN);
@@ -538,7 +549,7 @@ static int zhihe_execute_tuning(struct mmc *mmc, u8 opcode)
 #endif
 
 	val = sdhci_readl(host, AT_STAT_R);
-	printf("  Tuning: %d 0x%08x\n", s_delay_lanes[mmc->selected_mode], val);
+	printf("txdly %d, phcode 0x%08x\n", s_delay_lanes[mmc->selected_mode], val);
 
 	/*
 	 * Disable the tuning engine to prevent auto-tuning
@@ -575,6 +586,7 @@ const struct sdhci_ops snps_ops = {
 #endif
 	.set_control_reg = &zhihe_sdhci_set_control_reg,
 	.set_ios_post = zhihe_sdhci_set_ios_post,
+	.set_enhanced_strobe = zhihe_sdhci_set_enhanced_strobe,
 };
 
 static int snps_sdhci_probe(struct udevice *dev)
@@ -584,12 +596,29 @@ static int snps_sdhci_probe(struct udevice *dev)
 	struct sdhci_host *host = dev_get_priv(dev);
 
 	u32 max_clk, f_max;
-	struct clk clk;
+	struct clk_bulk clk_bulk;
+	struct reset_ctl_bulk rst_bulk = {NULL, 0};
 	int ret;
 
-	ret = clk_get_by_index(dev, 0, &clk);
-	if (ret)
+	ret = clk_get_bulk(dev, &clk_bulk);
+	if (ret) {
+		printf("zhihe sdhci: %s get clks error\n", dev->name);
 		return ret;
+	}
+
+	ret = clk_enable_bulk(&clk_bulk);
+	if (ret) {
+		printf("zhihe sdhci: %s enable clks error\n", dev->name);
+		return ret;
+	}
+
+	/* 
+	 * No return value checking
+	 * 1. Compatible with DTS without resets, 
+	 * 2. SPL not support DM_RESET, ignore resets ctrl
+	 */
+	reset_get_bulk(dev, &rst_bulk);
+	reset_deassert_bulk(&rst_bulk);
 
 	debug("\n%s: txdelay %d\n", __func__, DELAY_LANE);
 
@@ -598,7 +627,7 @@ static int snps_sdhci_probe(struct udevice *dev)
 	host->name = dev->name;
 	host->ioaddr = (void *)devfdt_get_addr(dev);
 
-	max_clk = clk_get_rate(&clk);
+	max_clk = clk_get_rate(&clk_bulk.clks[0]);
 	if (IS_ERR_VALUE(max_clk)) {
 		ret = max_clk;
 		goto err;
@@ -653,7 +682,8 @@ static int snps_sdhci_probe(struct udevice *dev)
 	return 0;
 
 err:
-	clk_disable(&clk);
+	reset_assert_bulk(&rst_bulk);
+	clk_release_bulk(&clk_bulk);
 	return ret;
 }
 
