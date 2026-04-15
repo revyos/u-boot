@@ -78,26 +78,8 @@
 					entry = /bits/ 64 <CONFIG_TEXT_BASE>;
 
 					uboot_blob: blob-ext {
-						filename = "u-boot.bin";
+						filename = "u-boot-dtb.bin";
 					};
-
-					hash {
-						algo = "sha256";
-					};
-				};
-
-				aon-fw {
-					description = "AON";
-					type = "firmware";
-					arch = "riscv";
-					compression = "none";
-					load = /bits/ 64 <0x308f8000>;
-					entry = /bits/ 64 <0x308f8000>;
-
-					aon_blob: blob-ext {
-						filename = "a210-aon.bin";
-					};
-
 
 					hash {
 						algo = "sha256";
@@ -111,21 +93,21 @@
 				a210-evb {
 					description = "EVB Configuration";
 					firmware = "opensbi";
-					loadables = "uboot", "aon-fw";
+					loadables = "uboot";
 					fdt = "fdt-opensbi";
 				};
 
 				a210-dev {
 					description = "DEV Configuration";
 					firmware = "opensbi";
-					loadables = "uboot", "aon-fw";
+					loadables = "uboot";
 					fdt = "fdt-opensbi";
 				};
 
 				a210-evb-d2d {
 					description = "EVB D2D Configuration";
 					firmware = "opensbi";
-					loadables = "uboot", "aon-fw";
+					loadables = "uboot";
 					fdt = "fdt-opensbi";
 				};
 			};
