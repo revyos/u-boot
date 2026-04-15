@@ -20,18 +20,6 @@
 			fit,fdt-list = "of-list";
 
 			images {
-				@fdt-SEQ {
-					description = "NAME";
-					type = "flat_dt";
-					arch = "riscv";
-					compression = "none";
-					load = /bits/ 64 <0x81000000>;
-
-					hash {
-						algo = "sha256";
-					};
-				};
-
 				fdt-opensbi {
 					description = "NAME";
 					type = "flat_dt";
