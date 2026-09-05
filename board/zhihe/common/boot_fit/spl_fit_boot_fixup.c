@@ -221,12 +221,13 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
      * U-Boot fdt fixup 
      */
     /* 1. Fixup DDR size, write to u-boot fdt */
-    void *fdt_uboot = spl_find_uboot_fdt_blob();
+    void *fdt_uboot = IS_ENABLED(CONFIG_A210_SHARED_FDT) ?
+        spl_image->fdt_addr : spl_find_uboot_fdt_blob();
     if (!fdt_uboot) {
         return;
     }
     debug("uboot fdt blob 0x%p\n", fdt_uboot);
-    if (spl_get_ddr_info(&start, &size) == 0) {
+    if (!IS_ENABLED(CONFIG_A210_SHARED_FDT) && spl_get_ddr_info(&start, &size) == 0) {
         int ret = fdt_fixup_memory(fdt_uboot, start, size);
         debug("fixup mem ret %d\n", ret);
         if (ret) {

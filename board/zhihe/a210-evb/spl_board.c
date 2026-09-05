@@ -5,6 +5,8 @@
 //#define DEBUG
 #include <asm/spl.h>
 #include <cpu_func.h>
+#include <fdt_support.h>
+#include <asm/global_data.h>
 #include <cpu.h>
 #include <mapmem.h>
 #include <image.h>
@@ -14,6 +16,17 @@
 #include <log.h>
 #include <dm.h>
 #include <dm/uclass-internal.h>
+
+#ifdef CONFIG_A210_SHARED_FDT
+void *board_fdt_blob_setup(int *err)
+{
+	DECLARE_GLOBAL_DATA_PTR;
+
+	/* FIT has not been loaded yet; retain SPL's early appended control DT. */
+	*err = -EEXIST;
+	return (void *)gd->fdt_blob;
+}
+#endif
 
 #include "board_boot.h"
 #include "board_porting.h"
@@ -309,6 +322,19 @@ const char * spl_get_fit_dtb_name(int do_multi_check)
  */
 int spl_fixup_os_fdt(void *fdt)
 {
+	u64 start, size;
+	int ret;
+
+	/* The source-built firmware DT contains a conservative DRAM placeholder. */
+	ret = spl_get_ddr_info(&start, &size);
+	if (ret)
+		return ret;
+	ret = fdt_fixup_memory(fdt, start, size);
+	if (ret)
+		return ret;
+	if (IS_ENABLED(CONFIG_A210_FIRMWARE_VERIFY) && loader_get_die_count() != 1)
+		return -ENOTSUPP;
+
 	if ((spl_boot_device() == BOOT_DEVICE_BOOTROM) && loader_get_die_count() > 1) {
 		/* For a multi-DIE SoC, only the CPU on DIE0 is booted in fastboot mode. */
 		int node_offset;

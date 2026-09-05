@@ -20,15 +20,15 @@
 			fit,fdt-list = "of-list";
 
 			images {
-				fdt-opensbi {
-					description = "NAME";
+				fdt-platform {
+					description = "A210 shared OpenSBI and U-Boot device tree";
 					type = "flat_dt";
 					arch = "riscv";
 					compression = "none";
 					load = /bits/ 64 <0x81000000>;
 
 					sbifdt_blob: blob_ext {
-						filename = "a210-opensbi.dtb";
+						filename = "a210-firmware.dtb";
 					};
 
 					hash {
@@ -66,7 +66,11 @@
 					entry = /bits/ 64 <CONFIG_TEXT_BASE>;
 
 					uboot_blob: blob-ext {
+#ifdef CONFIG_A210_SHARED_FDT
+						filename = "u-boot-nodtb.bin";
+#else
 						filename = "u-boot-dtb.bin";
+#endif
 					};
 
 					hash {
@@ -82,21 +86,21 @@
 					description = "EVB Configuration";
 					firmware = "opensbi";
 					loadables = "uboot";
-					fdt = "fdt-opensbi";
+					fdt = "fdt-platform";
 				};
 
 				a210-dev {
 					description = "DEV Configuration";
 					firmware = "opensbi";
 					loadables = "uboot";
-					fdt = "fdt-opensbi";
+					fdt = "fdt-platform";
 				};
 
 				a210-evb-d2d {
 					description = "EVB D2D Configuration";
 					firmware = "opensbi";
 					loadables = "uboot";
-					fdt = "fdt-opensbi";
+					fdt = "fdt-platform";
 				};
 			};
 		};

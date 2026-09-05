@@ -11,6 +11,8 @@
 #include <exports.h>
 #include <serial.h>
 #include <fdt_support.h>
+#include <fdtdec.h>
+#include <mapmem.h>
 
 #include "board_porting.h"
 #include "board_boot.h"
@@ -20,6 +22,21 @@
 #include "include/board.h"
 
 #include "rambus/soc_parameter.h"
+
+#ifdef CONFIG_A210_SHARED_FDT
+void *board_fdt_blob_setup(int *err)
+{
+	void *fdt = map_sysmem(gd->arch.firmware_fdt_addr, 0);
+
+	/* start.S preserved the DT pointer supplied by OpenSBI in a1. */
+	if (!gd->arch.firmware_fdt_addr || fdt_check_header(fdt)) {
+		*err = -EINVAL;
+		return NULL;
+	}
+	*err = 0;
+	return fdt;
+}
+#endif
 
 /*
  * static functions
@@ -41,6 +58,14 @@ int board_init(void)
 {
 	const char * name = uboot_get_binfo_from_fdt((void *)gd->fdt_blob);
 	printf("Board: %s\n", name);
+#ifdef CONFIG_A210_SHARED_FDT
+	if (gd->fdt_src != FDTSRC_BOARD) {
+		printf("FDT: expected the device tree supplied by OpenSBI\n");
+		return -EINVAL;
+	}
+	printf("FDT: shared with OpenSBI (firmware address 0x%lx)\n",
+	       (ulong)gd->arch.firmware_fdt_addr);
+#endif
 	uboot_gpio_pin_init(name);
 
 	clk_init();
@@ -128,4 +153,3 @@ static int do_boot_aon(struct cmd_tbl *cmdtp, int flag, int argc, char *const ar
 }
 
 U_BOOT_CMD(boot_aon, CONFIG_SYS_MAXARGS, 0, do_boot_aon, "Boot aon e902 core", "");
-

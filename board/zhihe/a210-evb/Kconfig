@@ -1,5 +1,14 @@
 if TARGET_A210_EVB
 
+config A210_SHARED_FDT
+	bool "Share the firmware DT between OpenSBI and U-Boot proper"
+	select OF_BOARD
+	select OF_HAS_PRIOR_STAGE
+	select OF_OMIT_DTB
+	help
+	  Pass one complete FIT DT through OpenSBI to U-Boot proper. SPL keeps
+	  its own early control DT, but U-Boot proper has no appended DTB.
+
 config A210_FIRMWARE_VERIFY
 	bool "Verify plain A210 FIT payloads before execution"
 	depends on SPL_FIT_SIGNATURE
