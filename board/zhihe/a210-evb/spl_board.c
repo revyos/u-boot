@@ -204,7 +204,6 @@ int spl_board_init_f(void)
 
 	/* Bram call init */
 	spl_prepare_bram_section();
-	invalidate_icache_all();
 
 	/* Init chips */
 	init_all_chips();

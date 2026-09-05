@@ -3,6 +3,7 @@
  */
 
 #include <asm/csr.h>
+#include <cpu_func.h>
 
 #include "include/board.h"
 #include "include/utils/io.h"
@@ -234,6 +235,9 @@ ATT_BRAM_TEXT static void bram_switch_slc(ulong param)
 
     pmp_init_enable_bram_ddr();
 
+    /* Complete SLC/PMP changes before fetching the next firmware stage. */
+    asm volatile("fence iorw, iorw\n\tfence.i" ::: "memory");
+
     /* Jump to OpenSBI*/
     opensbi_entry_t opensbi_entry = (opensbi_entry_t)entry_info.entry;
     opensbi_entry(entry_info.hartid, entry_info.dtb, (ulong)&entry_info.opensbi_info);
@@ -252,6 +256,11 @@ int spl_call_opensbi(void * entry, ulong hartid, ulong dtb, ulong info, ulong sl
     /* high32: die_count, low32: slc_en */
     ulong param = die_count << 32;
     param |= (slc_en & 0xffffffff);
+
+    /* Publish FIT payloads and entry_info before switching the memory path. */
+    flush_dcache_all();
+    asm volatile("fence iorw, iorw" ::: "memory");
+    invalidate_icache_all();
     bram_entry(bram_switch_slc, param);
 
     /* Never arrive here */
