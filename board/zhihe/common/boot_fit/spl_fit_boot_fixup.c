@@ -5,6 +5,8 @@
 
 //#define DEBUG
 #include <log.h>
+#include <cpu_func.h>
+#include <hang.h>
 #include <errno.h>
 #include <image.h>
 #include <memalign.h>
@@ -113,9 +115,72 @@ typedef void (*opensbi_entry_t)(ulong hartid, ulong dtb, ulong info);
 }
 
 static uintptr_t s_opensbi_entry;
+
+#ifdef CONFIG_A210_FIRMWARE_VERIFY
+static const void *a210_sbi_fit;
+static int a210_sbi_node;
+static ulong a210_sbi_load, a210_sbi_size;
+
+static int a210_verify_loaded(const void *fit, int node, ulong addr, ulong len)
+{
+	ALLOC_CACHE_ALIGN_BUFFER(uint8_t, digest, FIT_MAX_HASH_LEN);
+	uint8_t *expected;
+	int hash_node, digest_len, expected_len;
+	const char *algo;
+	const void *source;
+	size_t source_len;
+	uint8_t comp;
+
+	if (fit_image_get_comp(fit, node, &comp) || comp != IH_COMP_NONE ||
+	    fdt_subnode_offset(fit, node, "cipher") >= 0)
+		return -ENOTSUPP;
+	hash_node = fdt_subnode_offset(fit, node, "hash");
+	if (hash_node < 0 || fit_image_hash_get_algo(fit, hash_node, &algo) ||
+	    strcmp(algo, "sha256") ||
+	    fit_image_hash_get_value(fit, hash_node, &expected, &expected_len))
+		return -EBADMSG;
+	if (expected_len != 32 || !len || addr + len < addr ||
+	    addr + len > ULONG_MAX - (CONFIG_SYS_CACHELINE_SIZE - 1))
+		return -EINVAL;
+
+	/* Check plain source bytes without invoking FIT signature policy. */
+	if (fit_image_get_data_and_size(fit, node, &source, &source_len) ||
+	    source_len != len)
+		return -EBADMSG;
+	if (calculate_hash(source, source_len, algo, digest, &digest_len))
+		return -EIO;
+	if (digest_len != expected_len || memcmp(digest, expected, digest_len)) {
+		printf("A210: source %s SHA256 MISMATCH, refusing to boot\n",
+		       fdt_get_name(fit, node, NULL));
+		return -EBADMSG;
+	}
+	printf("A210: source %s SHA256 OK\n", fdt_get_name(fit, node, NULL));
+
+	/* Verify the destination after publishing the copied cache lines. */
+	flush_dcache_range(addr & ~(CONFIG_SYS_CACHELINE_SIZE - 1UL),
+			  ALIGN(addr + len, CONFIG_SYS_CACHELINE_SIZE));
+	if (calculate_hash((const void *)addr, len, algo, digest, &digest_len))
+		return -EIO;
+	if (digest_len != expected_len || memcmp(digest, expected, digest_len)) {
+		printf("A210: loaded %s SHA256 MISMATCH at 0x%lx, refusing to boot\n",
+		       fdt_get_name(fit, node, NULL), addr);
+		return -EBADMSG;
+	}
+	printf("A210: loaded %s SHA256 OK at 0x%lx (%lu bytes)\n",
+	       fdt_get_name(fit, node, NULL), addr, len);
+	return 0;
+}
+#endif
+
 static void fixup_opensbi_entry(ulong hartid, ulong dtb, ulong info)
 {
     struct fw_dynamic_info *opensbi_info = (struct fw_dynamic_info *)info;
+
+#ifdef CONFIG_A210_FIRMWARE_VERIFY
+	if (!a210_sbi_fit || a210_verify_loaded(a210_sbi_fit, a210_sbi_node,
+					      a210_sbi_load, a210_sbi_size))
+		hang();
+#endif
 
 	if (env_get_ulong("boot_loglevel", 10, 0) < 1)
         opensbi_info->options = 1; // disable opensbi log
@@ -148,6 +213,8 @@ void spl_perform_fixups(struct spl_image_info *spl_image)
     /* 2. Board user-define fdt fixup */
     if (spl_fixup_os_fdt(spl_image->fdt_addr) !=0 ) {
         printf("spl: Warning, failed fixup os fdt\n");
+		if (IS_ENABLED(CONFIG_A210_FIRMWARE_VERIFY))
+			hang();
     }
 
     /*
@@ -195,6 +262,20 @@ int board_spl_fit_is_verify(void)
 
 int board_fit_each_image_post_load(const void *fit, int noffset, ulong loadaddr, ulong len)
 {
+#ifdef CONFIG_A210_FIRMWARE_VERIFY
+	uint8_t os;
+	int ret = a210_verify_loaded(fit, noffset, loadaddr, len);
+
+	if (ret)
+		return ret;
+	if (!fit_image_get_os(fit, noffset, &os) && os == IH_OS_OPENSBI) {
+		a210_sbi_fit = fit;
+		a210_sbi_node = noffset;
+		a210_sbi_load = loadaddr;
+		a210_sbi_size = len;
+	}
+	return 0;
+#else
     ALLOC_CACHE_ALIGN_BUFFER(uint8_t, hash_value, FIT_MAX_HASH_LEN);
     int hash_value_len;
     const char *algo;
@@ -248,4 +329,5 @@ int board_fit_each_image_post_load(const void *fit, int noffset, ulong loadaddr,
     //     return -1;
     // }
     return 0;
+#endif
 }

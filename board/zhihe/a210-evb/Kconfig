@@ -1,5 +1,13 @@
 if TARGET_A210_EVB
 
+config A210_FIRMWARE_VERIFY
+	bool "Verify plain A210 FIT payloads before execution"
+	depends on SPL_FIT_SIGNATURE
+	help
+	  Verify RAM-boot FIT hashes and loaded, uncompressed payloads, including
+	  OpenSBI immediately before the BRAM handoff. Intended for the plain
+	  development FIT produced by tools/a210/build.sh, not encrypted images.
+
 source board/zhihe/common/Kconfig
 
 config SYS_BOARD

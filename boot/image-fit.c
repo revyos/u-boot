@@ -2316,7 +2316,9 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
 					      fit_base_uname_config);
 
 #ifndef USE_HOSTCC
-	board_fit_each_image_post_load(fit, noffset, load, len);
+	ret = board_fit_each_image_post_load(fit, noffset, load, len);
+	if (ret)
+		return ret;
 #endif
 	return noffset;
 }
