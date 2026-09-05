@@ -182,7 +182,7 @@ static void fixup_opensbi_entry(ulong hartid, ulong dtb, ulong info)
 		hang();
 #endif
 
-	if (env_get_ulong("boot_loglevel", 10, 0) < 1)
+	if (env_get_ulong("boot_loglevel", 10, 1) < 1)
         opensbi_info->options = 1; // disable opensbi log
 
 	board_spl_call_opensbi(s_opensbi_entry, hartid, dtb, info);
