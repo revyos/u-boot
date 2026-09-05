@@ -4,55 +4,13 @@
  */
 
 #include <dt-bindings/clock/a210-clock.h>
+#include "a210-cpu-intc.dtsi"
 
 / {
 	model = "zhihe a210";
-	compatible = "zhihe,a210-soc";
+	compatible = "zhihe,a210";
 	#address-cells = <2>;
 	#size-cells = <2>;
-
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		bootph-pre-ram;
-		cpu@0 {
-			device_type = "cpu";
-			reg = <0>;
-			status = "okay";
-			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu";
-			mmu-type = "riscv,sv39";
-			bootph-pre-ram;
-		};
-
-		cpu@8 {
-			device_type = "cpu";
-			reg = <8>;
-			status = "okay";
-			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu";
-			mmu-type = "riscv,sv39";
-			bootph-pre-ram;
-		};
-		cpu@16 {
-			device_type = "cpu";
-			reg = <16>;
-			status = "okay";
-			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu";
-			mmu-type = "riscv,sv39";
-			bootph-pre-ram;
-		};
-		cpu@24 {
-			device_type = "cpu";
-			reg = <24>;
-			status = "okay";
-			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu";
-			mmu-type = "riscv,sv39";
-			bootph-pre-ram;
-		};
-	};
 
 	reserved-memory {
 		#address-cells = <2>;
@@ -75,12 +33,6 @@
 		compatible = "simple-bus";
 		ranges;
 		bootph-pre-ram;
-
-		intc: interrupt-controller@0018000000 {
-			compatible = "riscv,plic0";
-			reg = <0x00 0x18000000 0x0 0x04000000>;
-			status = "okay";
-		};
 
 		clk: clock-controller@0 {
 			compatible = "zhihe,a210-clk";
@@ -228,16 +180,14 @@
 			#reset-cells = <1>;
 		};
 
-		uart4: serial@08401000 {
-			compatible = "snps,dw-apb-uart";
-			reg = <0x0 0x08401000 0x0 0x400>;
+		serial@8401000 {
+			/* U-Boot still uses the vendor clock-controller binding. */
 			clocks = <&clk PERI2_UART4_SCLK_EN>;
-			reg-shift = <2>;
-			reg-io-width = <4>;
-			bootph-pre-ram;
+			clock-names = "baudclk";
 		};
 
 		gmac0: ethernet@02100000{
+			interrupts = <277 IRQ_TYPE_LEVEL_HIGH>;
 			compatible = "zhihe,a2xx-dwmac";
 			reg = <0x00 0x02100000 0x0 0x10000>;
 			clocks = <&clk PERI1_GMAC0_ACLK_EN>, <&clk PERI1_GMAC0_HCLK_EN>, <&clk PERI1_GMAC0_X2H_ACLK_EN>, <&clk PERI1_GMAC0_X2H_HCLK_EN>;
@@ -250,6 +200,7 @@
 		};
 
 		gmac1: ethernet@02110000{
+			interrupts = <288 IRQ_TYPE_LEVEL_HIGH>;
 			compatible = "zhihe,a2xx-dwmac";
 			reg = <0x00 0x02110000 0x0 0x10000>;
 			clocks = <&clk PERI1_GMAC1_ACLK_EN>, <&clk PERI1_GMAC1_HCLK_EN>, <&clk PERI1_GMAC1_X2H_ACLK_EN>, <&clk PERI1_GMAC1_X2H_HCLK_EN>;
@@ -262,6 +213,7 @@
 		};
 
 		emmc: sdhci@00500000 {
+			interrupts = <265 IRQ_TYPE_LEVEL_HIGH>;
 			compatible = "zhihe,a2xx-dwcmshc";
 			reg = <0x00 0x00500000 0x0 0x10000>;
 			index = <0x0>;
@@ -319,7 +271,7 @@
 		watchdog0: watchdog@00305000 {
 			compatible = "snps,dw-wdt";
 			reg = <0x00 0x00305000 0x0 0x1000>;
-			interrupts = <331>;
+			interrupts = <331 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk PERI0_WDT0_PCLK_EN>;
 			u-boot,noautostart;
 			resets = <&peri0_rst 4>;

@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
+/* Keep vendor board resources until their drivers use the Linux bindings. */
+#include "a210-evb.dts"
+
+/ {
+	model = "Zhihe A210 Development Board";
+	compatible = "zhihe,a210-dev", "zhihe,a210";
+};

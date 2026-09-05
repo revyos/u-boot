@@ -9,7 +9,7 @@
 
 / {
 	model = "zhihe a210 evb";
-	compatible = "zhihe,a210-soc", "zhihe, a210-evb";
+	compatible = "zhihe,a210-evb", "zhihe,a210";
 	#address-cells = <2>;
 	#size-cells = <2>;
 
@@ -22,7 +22,7 @@
 
 	chosen {
 		bootargs = "console=ttyS4,115200";
-		stdout-path = "/soc/serial@08401000:115200";
+		stdout-path = "serial4:115200";
 	};
 
 	config {
