@@ -6,6 +6,7 @@
 #define OPENSSL_API_COMPAT 0x10101000L
 
 #include "mkimage.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
