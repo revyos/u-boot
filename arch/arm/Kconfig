@@ -619,8 +619,67 @@ config IPROC
 config S5P
 	def_bool y if ARCH_EXYNOS || ARCH_S5PC1XX
 
+config ARCH_SUNXI
+	bool "Support sunxi (Allwinner) SoCs"
+	select BINMAN
+	select CMD_GPIO
+	select CMD_MMC if MMC
+	select CMD_USB if DISTRO_DEFAULTS && USB_HOST
+	select CLK
+	select DM
+	select DM_GPIO
+	select DM_I2C if I2C
+	select DM_SPI if SPI
+	select DM_SPI_FLASH if SPI && MTD
+	select DM_KEYBOARD
+	select DM_SERIAL
+	select MMU_PGPROT if ARM64
+	select OF_BOARD_SETUP
+	select OF_CONTROL
+	select PINCTRL
+	select SPECIFY_CONSOLE_INDEX
+	select SPL_SEPARATE_BSS if SPL
+	select SPL_STACK_R if SPL
+	select SPL_SYS_MALLOC_SIMPLE if SPL
+	select SPL_SYS_THUMB_BUILD if SPL && !ARM64
+	select SUNXI_GPIO
+	select SYS_NS16550
+	select SYS_THUMB_BUILD if !ARM64
+	select USB_KEYBOARD if DISTRO_DEFAULTS && USB_HOST
+	select USB_STORAGE if DISTRO_DEFAULTS && USB_HOST
+	select SPL_USE_TINY_PRINTF if SPL
+	select USE_PREBOOT
+	select ENV_RELOC_GD_ENV_ADDR
+	imply BOARD_LATE_INIT
+	imply CMD_DM
+	imply CMD_GPT
+	imply CMD_UBI if MTD_RAW_NAND
+	imply DISTRO_DEFAULTS
+	imply DM_REGULATOR
+	imply DM_REGULATOR_FIXED
+	imply FAT_WRITE
+	imply FIT
+	imply OF_LIBFDT_OVERLAY
+	imply PRE_CONSOLE_BUFFER
+	imply SPL_GPIO
+	imply SPL_LIBCOMMON_SUPPORT
+	imply SPL_LIBGENERIC_SUPPORT
+	imply SPL_MMC if MMC
+	imply SPL_POWER
+	imply SPL_SERIAL
+	imply SYSRESET
+	imply SYSRESET_WATCHDOG
+	imply SYSRESET_WATCHDOG_AUTO
+	imply USB
+	imply USB_GADGET
+	imply WDT
+	help
+	  Enable support for ARM-based Allwinner sunxi SoCs. Select the SoC
+	  and board options in the sunxi platform configuration.
+
 choice
 	prompt "Target select"
+	depends on !ARCH_SUNXI
 	default TARGET_HIKEY
 
 config ARCH_AIROHA
@@ -1205,61 +1264,6 @@ config ARCH_SOCFPGA
 	imply SPL_SPI_FLASH_SUPPORT
 	imply SPL_SPI
 	imply L2X0_CACHE
-
-config ARCH_SUNXI
-	bool "Support sunxi (Allwinner) SoCs"
-	select BINMAN
-	select CMD_GPIO
-	select CMD_MMC if MMC
-	select CMD_USB if DISTRO_DEFAULTS && USB_HOST
-	select CLK
-	select DM
-	select DM_GPIO
-	select DM_I2C if I2C
-	select DM_SPI if SPI
-	select DM_SPI_FLASH if SPI && MTD
-	select DM_KEYBOARD
-	select DM_SERIAL
-	select MMU_PGPROT if ARM64
-	select OF_BOARD_SETUP
-	select OF_CONTROL
-	select PINCTRL
-	select SPECIFY_CONSOLE_INDEX
-	select SPL_SEPARATE_BSS if SPL
-	select SPL_STACK_R if SPL
-	select SPL_SYS_MALLOC_SIMPLE if SPL
-	select SPL_SYS_THUMB_BUILD if SPL && !ARM64
-	select SUNXI_GPIO
-	select SYS_NS16550
-	select SYS_THUMB_BUILD if !ARM64
-	select USB_KEYBOARD if DISTRO_DEFAULTS && USB_HOST
-	select USB_STORAGE if DISTRO_DEFAULTS && USB_HOST
-	select SPL_USE_TINY_PRINTF if SPL
-	select USE_PREBOOT
-	select ENV_RELOC_GD_ENV_ADDR
-	imply BOARD_LATE_INIT
-	imply CMD_DM
-	imply CMD_GPT
-	imply CMD_UBI if MTD_RAW_NAND
-	imply DISTRO_DEFAULTS
-	imply DM_REGULATOR
-	imply DM_REGULATOR_FIXED
-	imply FAT_WRITE
-	imply FIT
-	imply OF_LIBFDT_OVERLAY
-	imply PRE_CONSOLE_BUFFER
-	imply SPL_GPIO
-	imply SPL_LIBCOMMON_SUPPORT
-	imply SPL_LIBGENERIC_SUPPORT
-	imply SPL_MMC if MMC
-	imply SPL_POWER
-	imply SPL_SERIAL
-	imply SYSRESET
-	imply SYSRESET_WATCHDOG
-	imply SYSRESET_WATCHDOG_AUTO
-	imply USB
-	imply USB_GADGET
-	imply WDT
 
 config ARCH_U8500
 	bool "ST-Ericsson U8500 Series"

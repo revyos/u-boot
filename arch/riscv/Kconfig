@@ -69,6 +69,9 @@ config TARGET_ASPEED_AST2700_IBEX
 
 endchoice
 
+config ARCH_SUNXI
+	bool
+
 config SYS_ICACHE_OFF
 	bool "Do not enable icache"
 	help
