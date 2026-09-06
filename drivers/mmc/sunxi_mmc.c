@@ -43,6 +43,7 @@ struct sunxi_mmc_plat {
 
 struct sunxi_mmc_priv {
 	unsigned mmc_no;
+	unsigned int card_clock;
 	uint32_t *mclkreg;
 	unsigned fatal_err;
 	struct gpio_desc cd_gpio;	/* Change Detect GPIO */
@@ -61,6 +62,7 @@ static bool sunxi_mmc_can_calibrate(void)
 	       IS_ENABLED(CONFIG_MACH_SUN50I_H5) ||
 	       IS_ENABLED(CONFIG_SUN50I_GEN_H6) ||
 	       IS_ENABLED(CONFIG_SUNXI_GEN_NCAT2) ||
+	       IS_ENABLED(CONFIG_MACH_SUN252I_V861) ||
 	       IS_ENABLED(CONFIG_MACH_SUN8I_R40);
 }
 
@@ -70,6 +72,12 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 	bool new_mode = IS_ENABLED(CONFIG_MMC_SUNXI_HAS_NEW_MODE);
 	u32 val = 0;
 
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
+		if (!hz || hz > 50000000)
+			return -EINVAL;
+		hz *= 2; /* TM1 SDR has an additional divide-by-two stage. */
+	}
+
 	/* A83T support new mode only on eMMC */
 	if (IS_ENABLED(CONFIG_MACH_SUN8I_A83T) && priv->mmc_no != 2)
 		new_mode = false;
@@ -78,6 +86,13 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 		pll = CCM_MMC_CTRL_OSCM24;
 		pll_hz = 24000000;
 	} else {
+#ifdef CONFIG_MACH_SUN252I_V861
+		int ret = sun252i_v861_peri400m_rate(&pll_hz);
+
+		if (ret)
+			return ret;
+		pll = CCM_MMC_CTRL_PLL6;
+#else
 #ifdef CONFIG_MACH_SUN9I
 		pll = CCM_MMC_CTRL_PLL_PERIPH0;
 		pll_hz = clock_get_pll4_periph0();
@@ -112,6 +127,7 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 			if (priv->mmc_no == 2)
 				pll_hz *= 2;
 		}
+#endif
 	}
 
 	div = pll_hz / hz;
@@ -172,6 +188,8 @@ static int mmc_set_mod_clk(struct sunxi_mmc_priv *priv, unsigned int hz)
 
 	writel(CCM_MMC_CTRL_ENABLE| pll | CCM_MMC_CTRL_N(n) |
 	       CCM_MMC_CTRL_M(div) | val, priv->mclkreg);
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861))
+		priv->card_clock = pll_hz / (1U << n) / div / 2;
 
 	debug("mmc %u set mod-clk req %u parent %u n %u m %u rate %u\n",
 	      priv->mmc_no, hz, pll_hz, 1u << n, div, pll_hz / (1u << n) / div);
@@ -214,12 +232,24 @@ static int mmc_config_clock(struct sunxi_mmc_priv *priv, struct mmc *mmc)
 	/* Set mod_clk to new rate */
 	if (mmc_set_mod_clk(priv, mmc->clock))
 		return -1;
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
+		void __iomem *drive = (void *)priv->reg + 0x140;
+
+		/* Vendor TM1: PH180 output, PH90 input at SD High Speed. */
+		clrbits_le32(priv->mclkreg, CCM_MMC_CTRL_ENABLE);
+		clrsetbits_le32(drive, 3U << 16, 3U << 16);
+		clrsetbits_le32(&priv->reg->ntsr, 3U << 4,
+				mmc->selected_mode == SD_HS ? 0 : BIT(4));
+		setbits_le32(priv->mclkreg, CCM_MMC_CTRL_ENABLE);
+		mmc->clock = priv->card_clock;
+	}
 
 	/* Clear internal divider */
 	rval &= ~SUNXI_MMC_CLK_DIVIDER_MASK;
 	writel(rval, &priv->reg->clkcr);
 
-#if defined(CONFIG_SUNXI_GEN_SUN6I) || defined(CONFIG_SUN50I_GEN_H6) || defined(CONFIG_SUNXI_GEN_NCAT2)
+#if defined(CONFIG_SUNXI_GEN_SUN6I) || defined(CONFIG_SUN50I_GEN_H6) || \
+	defined(CONFIG_SUNXI_GEN_NCAT2) || defined(CONFIG_MACH_SUN252I_V861)
 	/* A64 supports calibration of delays on MMC controller and we
 	 * have to set delay of zero before starting calibration.
 	 * Allwinner BSP driver sets a delay only in the case of
@@ -472,7 +502,8 @@ static void sunxi_mmc_reset(void *regs)
 	writel(SUNXI_MMC_GCTRL_RESET, regs + SUNXI_MMC_GCTRL);
 	udelay(1000);
 
-	if (IS_ENABLED(CONFIG_SUN50I_GEN_H6) || IS_ENABLED(CONFIG_SUNXI_GEN_NCAT2)) {
+	if (IS_ENABLED(CONFIG_SUN50I_GEN_H6) || IS_ENABLED(CONFIG_SUNXI_GEN_NCAT2) ||
+	    IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
 		/* Reset card */
 		writel(SUNXI_MMC_HWRST_ASSERT, regs + SUNXI_MMC_HWRST);
 		udelay(10);
@@ -637,13 +668,16 @@ static int sunxi_mmc_send_cmd(struct udevice *dev, struct mmc_cmd *cmd,
 static int sunxi_mmc_getcd(struct udevice *dev)
 {
 	struct mmc *mmc = mmc_get_mmc_dev(dev);
+#if CONFIG_IS_ENABLED(DM_GPIO)
 	struct sunxi_mmc_priv *priv = dev_get_priv(dev);
+#endif
 
 	/* If polling, assume that the card is always present. */
 	if ((mmc->cfg->host_caps & MMC_CAP_NONREMOVABLE) ||
 	    (mmc->cfg->host_caps & MMC_CAP_NEEDS_POLL))
 		return 1;
 
+#if CONFIG_IS_ENABLED(DM_GPIO)
 	if (dm_gpio_is_valid(&priv->cd_gpio)) {
 		int cd_state = dm_gpio_get_value(&priv->cd_gpio);
 
@@ -652,6 +686,7 @@ static int sunxi_mmc_getcd(struct udevice *dev)
 		else
 			return cd_state;
 	}
+#endif
 	return 1;
 }
 
@@ -666,7 +701,8 @@ static unsigned get_mclk_offset(void)
 	if (IS_ENABLED(CONFIG_MACH_SUN9I))
 		return 0x410;
 
-	if (IS_ENABLED(CONFIG_SUN50I_GEN_H6) || IS_ENABLED(CONFIG_SUNXI_GEN_NCAT2))
+	if (IS_ENABLED(CONFIG_SUN50I_GEN_H6) || IS_ENABLED(CONFIG_SUNXI_GEN_NCAT2) ||
+	    IS_ENABLED(CONFIG_MACH_SUN252I_V861))
 		return 0x830;
 
 	return 0x88;
@@ -680,7 +716,9 @@ static int sunxi_mmc_probe(struct udevice *dev)
 	struct reset_ctl_bulk reset_bulk;
 	struct clk gate_clk;
 	struct mmc_config *cfg = &plat->cfg;
+#ifndef CONFIG_MACH_SUN252I_V861
 	struct ofnode_phandle_args args;
+#endif
 	u32 *ccu_reg;
 	int ret;
 
@@ -699,12 +737,21 @@ static int sunxi_mmc_probe(struct udevice *dev)
 
 	priv->reg = dev_read_addr_ptr(dev);
 
+#ifdef CONFIG_MACH_SUN252I_V861
+	if ((uintptr_t)priv->reg != SUNXI_MMC0_BASE)
+		return -EINVAL;
+	ccu_reg = (u32 *)SUN252I_V861_CCU_BASE;
+	cfg->f_max = min(cfg->f_max, 50000000U);
+	cfg->host_caps &= ~MMC_MODE_HS_52MHz;
+	sun252i_v861_mmc0_init();
+#else
 	/* We don't have a sunxi clock driver so find the clock address here */
 	ret = dev_read_phandle_with_args(dev, "clocks", "#clock-cells", 0,
 					  1, &args);
 	if (ret)
 		return ret;
 	ccu_reg = (u32 *)(uintptr_t)ofnode_get_addr(args.node);
+#endif
 
 	priv->mmc_no = ((uintptr_t)priv->reg - SUNXI_MMC0_BASE) / 0x1000;
 	priv->mclkreg = (void *)ccu_reg + get_mclk_offset() + priv->mmc_no * 4;
@@ -722,8 +769,10 @@ static int sunxi_mmc_probe(struct udevice *dev)
 		return ret;
 
 	/* This GPIO is optional */
+#if CONFIG_IS_ENABLED(DM_GPIO)
 	gpio_request_by_name(dev, "cd-gpios", 0, &priv->cd_gpio,
 			     GPIOD_IS_IN | GPIOD_PULL_UP);
+#endif
 
 	upriv->mmc = &plat->mmc;
 
@@ -740,6 +789,7 @@ static int sunxi_mmc_bind(struct udevice *dev)
 }
 
 static const struct udevice_id sunxi_mmc_ids[] = {
+	{ .compatible = "allwinner,sun252i-v861-mmc" },
 	{ .compatible = "allwinner,sun4i-a10-mmc" },
 	{ .compatible = "allwinner,sun5i-a13-mmc" },
 	{ .compatible = "allwinner,sun7i-a20-mmc" },

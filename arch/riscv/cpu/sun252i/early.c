@@ -103,6 +103,22 @@ int sun252i_v861_peri400m_rate(unsigned int *rate)
 	return 0;
 }
 
+void sun252i_v861_mmc0_init(void)
+{
+	void __iomem *bgr = (void __iomem *)(SUN252I_V861_CCU_BASE + 0x84c);
+	unsigned int pin;
+
+	for (pin = SUNXI_GPF(0); pin <= SUNXI_GPF(5); pin++) {
+		sunxi_gpio_set_cfgpin(pin, SUNXI_GPF_SDC0);
+		/* PF2 is CLK; CMD and all data lines need pull-ups. */
+		sunxi_gpio_set_pull(pin, pin == SUNXI_GPF(2) ?
+				    SUNXI_GPIO_PULL_DISABLE : SUNXI_GPIO_PULL_UP);
+	}
+	clrbits_le32(bgr, SUN252I_V861_BGR_RESET);
+	udelay(10);
+	setbits_le32(bgr, SUN252I_V861_BGR_RESET | SUN252I_V861_BGR_GATE);
+}
+
 void sun252i_v861_cpu_init(void)
 {
 	unsigned long value;

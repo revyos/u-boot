@@ -813,6 +813,7 @@ config MMC_SUNXI
 config MMC_SUNXI_HAS_NEW_MODE
 	bool
 	depends on MMC_SUNXI
+	default y if MACH_SUN252I_V861
 
 config MMC_SUNXI_HAS_MODE_SWITCH
 	bool
