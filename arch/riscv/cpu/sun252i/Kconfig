@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-2.0+
+
+if TARGET_SUN252I
+
+config MACH_SUN252I_V861
+	bool
+	default y
+	select ARCH_SUNXI
+	select ARCH_EARLY_INIT_R
+	select BINMAN
+	select SUPPORT_SPL
+	select SYS_CACHE_SHIFT_6
+	imply CPU
+	imply CPU_RISCV
+	imply CMD_CPU
+	imply SPL_CPU
+	imply SPL_OPENSBI
+
+config DRAM_CLK
+	int
+	default 1056
+
+config DRAM_ZQ
+	int
+	default 8088571
+
+endif

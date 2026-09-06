@@ -67,6 +67,12 @@ config TARGET_XILINX_MBV
 config TARGET_ASPEED_AST2700_IBEX
 	bool "Support Ibex RISC-V cores on Aspeed AST2700 SoC"
 
+config TARGET_SUN252I
+	bool "Support Allwinner V861/V881"
+	help
+	  Enable support for the Allwinner sun252i family, including the V861
+	  and V881 SoCs with RV32 T-Head C907 application cores.
+
 endchoice
 
 config ARCH_SUNXI
@@ -143,6 +149,7 @@ source "arch/riscv/cpu/jh7110/Kconfig"
 source "arch/riscv/cpu/k1/Kconfig"
 source "arch/riscv/cpu/k230/Kconfig"
 source "arch/riscv/cpu/th1520/Kconfig"
+source "arch/riscv/cpu/sun252i/Kconfig"
 
 # architecture-specific options below
 
