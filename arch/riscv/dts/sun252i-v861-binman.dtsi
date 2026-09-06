@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2026 Han Gao <gaohan@iscas.ac.cn>
+ */
+
+#include <config.h>
+
+/ {
+	binman: binman {
+	};
+};
+
+&binman {
+	filename = "u-boot-sunxi-with-spl.bin";
+	pad-byte = <0xff>;
+
+	spl {
+		type = "blob-ext";
+		filename = "spl/sunxi-spl.bin";
+		size = <0x20000>;
+	};
+
+	fit {
+		offset = <0x20000>;
+		description = "Allwinner sun252i OpenSBI and U-Boot";
+		#address-cells = <2>;
+		fit,fdt-list = "of-list";
+
+		images {
+			opensbi {
+				description = "OpenSBI fw_dynamic firmware";
+				type = "firmware";
+				os = "opensbi";
+				arch = "riscv";
+				compression = "none";
+				load = /bits/ 64 <CONFIG_SPL_OPENSBI_LOAD_ADDR>;
+				entry = /bits/ 64 <CONFIG_SPL_OPENSBI_LOAD_ADDR>;
+
+				opensbi_blob: opensbi {
+					filename = "fw_dynamic.bin";
+					missing-msg = "opensbi";
+				};
+			};
+
+			uboot {
+				description = "U-Boot";
+				type = "standalone";
+				os = "u-boot";
+				arch = "riscv";
+				compression = "none";
+				load = /bits/ 64 <CONFIG_TEXT_BASE>;
+
+				u-boot-nodtb {
+				};
+			};
+
+			@fdt-SEQ {
+				fit,operation = "gen-fdt-nodes";
+				description = "NAME";
+				type = "flat_dt";
+				compression = "none";
+			};
+		};
+
+		configurations {
+			default = "@conf-DEFAULT-SEQ";
+
+			@conf-SEQ {
+				description = "NAME";
+				firmware = "opensbi";
+				loadables = "uboot";
+				fdt = "fdt-SEQ";
+			};
+		};
+	};
+};

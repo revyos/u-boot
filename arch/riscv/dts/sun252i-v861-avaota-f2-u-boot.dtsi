@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+#include "sun252i-v861-binman.dtsi"
+
+/ {
+	cpus {
+		bootph-all;
+	};
+
+	soc {
+		bootph-all;
+	};
+};
+
+&cpu0 {
+	bootph-all;
+#ifdef CONFIG_ARCH_RV64I
+	riscv,isa-base = "rv64i";
+	mmu-type = "riscv,sv39";
+#endif
+};
+
+&cpu1 {
+	bootph-all;
+#ifdef CONFIG_ARCH_RV64I
+	riscv,isa-base = "rv64i";
+	mmu-type = "riscv,sv39";
+#endif
+};
+
+&uart0 {
+	bootph-all;
+};
+
+&i2c2 {
+	bootph-all;
+};
+
+&axp333 {
+	bootph-all;
+};
+
+&reg_dcdc2 {
+	bootph-all;
+	regulator-min-microvolt = <(CONFIG_AXP_DCDC2_VOLT * 1000)>;
+	regulator-max-microvolt = <(CONFIG_AXP_DCDC2_VOLT * 1000)>;
+};
+
+&spif {
+	bootph-all;
+
+	flash@0 {
+		bootph-all;
+	};
+};
