@@ -74,9 +74,9 @@ typedef struct dram_config {
 	u32	dram_tpr13;
 } dram_config_t;
 
-static inline int ns_to_t(int nanoseconds)
+static inline int ns_to_t_clk(int nanoseconds, unsigned int dram_clk)
 {
-	const unsigned int ctrl_freq = CONFIG_DRAM_CLK / 2;
+	const unsigned int ctrl_freq = dram_clk / 2;
 
 	return DIV_ROUND_UP(ctrl_freq * nanoseconds, 1000);
 }

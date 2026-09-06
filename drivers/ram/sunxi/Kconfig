@@ -3,7 +3,7 @@ config DRAM_SUN20I_D1
 	depends on ARCH_SUNXI
 	help
 	  This enables support for the DRAM controller driver covering
-	  the Allwinner D1/R528/T113s SoCs.
+	  the Allwinner D1/R528/T113s and V861/V881 SoCs.
 
 if DRAM_SUN20I_D1
 
@@ -32,6 +32,18 @@ config DRAM_SUNXI_TPR13
 	help
 	  TPR13 value from vendor DRAM settings. It tells which features
 	  should be configured.
+
+config DRAM_SUNXI_MR1
+	hex "DRAM mode register 1 value"
+	default 0x42
+	help
+	  Mode register 1 value from the vendor DRAM settings.
+
+config DRAM_SUNXI_TPR7
+	hex "DRAM TPR7 parameter"
+	default 0x1620121e
+	help
+	  TPR7 value from the vendor DRAM settings.
 
 choice
 	prompt "DRAM chip type"

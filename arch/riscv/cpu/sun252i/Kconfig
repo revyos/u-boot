@@ -18,6 +18,7 @@ config MACH_SUN252I_V861
 	imply CMD_CPU
 	imply SPL_CPU
 	imply SPL_OPENSBI
+	select DRAM_SUN20I_D1
 
 config DRAM_CLK
 	int

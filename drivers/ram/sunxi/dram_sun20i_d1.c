@@ -19,8 +19,31 @@
   #include <ram.h>
 #endif
 #include <linux/delay.h>
+#include <vsprintf.h>
 
 #include "dram_sun20i_d1.h"
+
+/*
+ * The ARM I/O accessors accept integer constants directly, while the RISC-V
+ * accessors retain the __iomem pointer type. Keep this register-oriented
+ * driver portable without obscuring every register expression with a cast.
+ */
+#ifdef CONFIG_RISCV
+static inline u32 sunxi_dram_readl(uintptr_t address)
+{
+	return readl((const void __iomem *)address);
+}
+
+static inline void sunxi_dram_writel(u32 value, uintptr_t address)
+{
+	writel(value, (void __iomem *)address);
+}
+
+#define readl(address) sunxi_dram_readl((uintptr_t)(address))
+#define writel(value, address) sunxi_dram_writel((value), (uintptr_t)(address))
+#endif
+
+#include "dram_sun252i_v861.h"
 
 #ifndef SUNXI_SID_BASE
 #define SUNXI_SID_BASE	0x3006200
@@ -29,6 +52,39 @@
 #ifndef SUNXI_CCM_BASE
 #define SUNXI_CCM_BASE	0x2001000
 #endif
+
+static void dram_wait_status(uintptr_t address, u32 mask, u32 expected)
+{
+	unsigned int retries = 100000;
+	u32 value;
+
+	while (((value = readl(address)) & mask) != expected) {
+		if (IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
+			if (!--retries)
+				panic("DRAM timeout: reg=%lx value=%x mask=%x expected=%x\n",
+				      (unsigned long)address, value, mask, expected);
+			udelay(10);
+		}
+	}
+}
+
+static bool dram_is_resume(void)
+{
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861))
+		return (readl(0x070901f8) & 0xffff) == 0x1918;
+	return !!(readl(0x070005d4) & BIT(16));
+}
+
+static void dram_sync_mapping(void)
+{
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
+		/* The vendor keeps L2 maintenance even with L1 D-cache off. */
+		asm volatile("fence iorw, iorw" : : : "memory");
+		writel(0x31, 0x37fff018);
+		dram_wait_status(0x37fff008, 0xffffffff, 0);
+		asm volatile("fence iorw, iorw" : : : "memory");
+	}
+}
 
 static void sid_read_ldoB_cal(const dram_para_t *para)
 {
@@ -62,6 +118,10 @@ static uint32_t sid_read_soc_chipid(void)
 static void dram_voltage_set(const dram_para_t *para)
 {
 	int vol;
+
+	/* V861 uses its board PMIC instead of the D1 internal LDO. */
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861))
+		return;
 
 	switch (para->dram_type) {
 	case SUNXI_DRAM_TYPE_DDR2:
@@ -98,6 +158,14 @@ static void dram_disable_all_master(void)
 	udelay(10);
 }
 
+static void dram_delay_set(uintptr_t address, u32 mask, u32 value)
+{
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861))
+		clrsetbits_le32(address, mask, value & mask);
+	else
+		setbits_le32(address, value);
+}
+
 static void eye_delay_compensation(const dram_para_t *para)
 {
 	uint32_t delay;
@@ -107,13 +175,13 @@ static void eye_delay_compensation(const dram_para_t *para)
 	delay = (para->dram_tpr11 & 0xf) << 9;
 	delay |= (para->dram_tpr12 & 0xf) << 1;
 	for (ptr = 0x3103310; ptr < 0x3103334; ptr += 4)
-		setbits_le32(ptr, delay);
+		dram_delay_set(ptr, 0x1e1e, delay);
 
 	// DATn1IOCR, n =  0...7
 	delay = (para->dram_tpr11 & 0xf0) << 5;
 	delay |= (para->dram_tpr12 & 0xf0) >> 3;
 	for (ptr = 0x3103390; ptr != 0x31033b4; ptr += 4)
-		setbits_le32(ptr, delay);
+		dram_delay_set(ptr, 0x1e1e, delay);
 
 	// PGCR0: assert AC loopback FIFO reset
 	clrbits_le32(0x3103100, 0x04000000);
@@ -122,16 +190,18 @@ static void eye_delay_compensation(const dram_para_t *para)
 
 	delay = (para->dram_tpr11 & 0xf0000) >> 7;
 	delay |= (para->dram_tpr12 & 0xf0000) >> 15;
-	setbits_le32(0x3103334, delay);
-	setbits_le32(0x3103338, delay);
+	dram_delay_set(0x3103334, 0x1e1e, delay);
+	dram_delay_set(0x3103338, 0x1e1e, delay);
 
 	delay = (para->dram_tpr11 & 0xf00000) >> 11;
 	delay |= (para->dram_tpr12 & 0xf00000) >> 19;
-	setbits_le32(0x31033b4, delay);
-	setbits_le32(0x31033b8, delay);
+	dram_delay_set(0x31033b4, 0x1e1e, delay);
+	dram_delay_set(0x31033b8, 0x1e1e, delay);
 
-	setbits_le32(0x310333c, (para->dram_tpr11 & 0xf0000) << 9);
-	setbits_le32(0x31033bc, (para->dram_tpr11 & 0xf00000) << 5);
+	dram_delay_set(0x310333c, 0x1e000000,
+		       (para->dram_tpr11 & 0xf0000) << 9);
+	dram_delay_set(0x31033bc, 0x1e000000,
+		       (para->dram_tpr11 & 0xf00000) << 5);
 
 	// PGCR0: release AC loopback FIFO reset
 	setbits_le32(0x3103100, BIT(26));
@@ -140,14 +210,18 @@ static void eye_delay_compensation(const dram_para_t *para)
 
 	delay = (para->dram_tpr10 & 0xf0) << 4;
 	for (ptr = 0x3103240; ptr != 0x310327c; ptr += 4)
-		setbits_le32(ptr, delay);
+		dram_delay_set(ptr, 0xf00, delay);
 	for (ptr = 0x3103228; ptr != 0x3103240; ptr += 4)
-		setbits_le32(ptr, delay);
+		dram_delay_set(ptr, 0xf00, delay);
 
-	setbits_le32(0x3103218, (para->dram_tpr10 & 0x0f) << 8);
-	setbits_le32(0x310321c, (para->dram_tpr10 & 0x0f) << 8);
+	dram_delay_set(0x3103218, 0xf00, (para->dram_tpr10 & 0x0f) << 8);
+	dram_delay_set(0x310321c, 0xf00, IS_ENABLED(CONFIG_MACH_SUN252I_V861) ?
+		       para->dram_tpr10 & 0xf00 :
+		       (para->dram_tpr10 & 0x0f) << 8);
 
-	setbits_le32(0x3103280, (para->dram_tpr10 & 0xf00) >> 4);
+	dram_delay_set(0x3103280, 0xf00, IS_ENABLED(CONFIG_MACH_SUN252I_V861) ?
+		       (para->dram_tpr10 >> 4) & 0xf00 :
+		       (para->dram_tpr10 & 0xf00) >> 4);
 }
 
 /*
@@ -206,24 +280,24 @@ static void mctl_set_timing_params(const dram_para_t *para,
 	switch (para->dram_type) {
 	case SUNXI_DRAM_TYPE_DDR2:
 		/* DRAM_TPR0 */
-		tfaw		= ns_to_t(50);
-		trrd		= ns_to_t(10);
-		trcd		= ns_to_t(20);
-		trc		= ns_to_t(65);
+		tfaw		= ns_to_t_clk(50, para->dram_clk);
+		trrd		= ns_to_t_clk(10, para->dram_clk);
+		trcd		= ns_to_t_clk(20, para->dram_clk);
+		trc		= ns_to_t_clk(65, para->dram_clk);
 
 		/* DRAM_TPR1 */
 		txp		= 2;
-		twtr		= ns_to_t(8);
-		twr		= ns_to_t(15);
-		trp		= ns_to_t(15);
-		tras		= ns_to_t(45);
+		twtr		= ns_to_t_clk(8, para->dram_clk);
+		twr		= ns_to_t_clk(15, para->dram_clk);
+		trp		= ns_to_t_clk(15, para->dram_clk);
+		tras		= ns_to_t_clk(45, para->dram_clk);
 
 		/* DRAM_TRP2 */
-		trfc		= ns_to_t(328);
-		trefi		= ns_to_t(7800) / 32;
+		trfc		= ns_to_t_clk(328, para->dram_clk);
+		trefi		= ns_to_t_clk(7800, para->dram_clk) / 32;
 
-		trasmax		= CONFIG_DRAM_CLK / 30;
-		if (CONFIG_DRAM_CLK < 409) {
+		trasmax		= para->dram_clk / 30;
+		if (para->dram_clk < 409) {
 			t_rdata_en	= 1;
 			tcl		= 3;
 			mr0		= 0x06a3;
@@ -248,28 +322,28 @@ static void mctl_set_timing_params(const dram_para_t *para,
 		mr2		= 0;
 		mr3		= 0;
 
-		tdinit0		= 200 * CONFIG_DRAM_CLK + 1;
-		tdinit1		= 100 * CONFIG_DRAM_CLK / 1000 + 1;
-		tdinit2		= 200 * CONFIG_DRAM_CLK + 1;
-		tdinit3		= 1 * CONFIG_DRAM_CLK + 1;
+		tdinit0		= 200 * para->dram_clk + 1;
+		tdinit1		= 100 * para->dram_clk / 1000 + 1;
+		tdinit2		= 200 * para->dram_clk + 1;
+		tdinit3		= 1 * para->dram_clk + 1;
 
 		break;
 	case SUNXI_DRAM_TYPE_DDR3:
-		trfc		= ns_to_t(350);
-		trefi		= ns_to_t(7800) / 32 + 1;	// XXX
+		trfc		= ns_to_t_clk(350, para->dram_clk);
+		trefi		= ns_to_t_clk(7800, para->dram_clk) / 32 + 1;	// XXX
 
-		twtr		= ns_to_t(8) + 2;		// + 2 ? XXX
+		twtr		= ns_to_t_clk(8, para->dram_clk) + 2;		// + 2 ? XXX
 		/* Only used by trd2wr calculation, which gets discard below */
-//		twr		= max(ns_to_t(15), 2);
-		trrd		= max(ns_to_t(10), 2);
-		txp		= max(ns_to_t(10), 2);
+//		twr		= max(ns_to_t_clk(15, para->dram_clk), 2);
+		trrd		= max(ns_to_t_clk(10, para->dram_clk), 2);
+		txp		= max(ns_to_t_clk(10, para->dram_clk), 2);
 
-		if (CONFIG_DRAM_CLK <= 800) {
-			tfaw		= ns_to_t(50);
-			trcd		= ns_to_t(15);
-			trp		= ns_to_t(15);
-			trc		= ns_to_t(53);
-			tras		= ns_to_t(38);
+		if (para->dram_clk <= 800) {
+			tfaw		= ns_to_t_clk(50, para->dram_clk);
+			trcd		= ns_to_t_clk(15, para->dram_clk);
+			trp		= ns_to_t_clk(15, para->dram_clk);
+			trc		= ns_to_t_clk(53, para->dram_clk);
+			tras		= ns_to_t_clk(38, para->dram_clk);
 
 			mr0		= 0x1c70;
 			mr2		= 0x18;
@@ -278,11 +352,11 @@ static void mctl_set_timing_params(const dram_para_t *para,
 			tcwl		= 4;
 			t_rdata_en	= 4;
 		} else {
-			tfaw		= ns_to_t(35);
-			trcd		= ns_to_t(14);
-			trp		= ns_to_t(14);
-			trc		= ns_to_t(48);
-			tras		= ns_to_t(34);
+			tfaw		= ns_to_t_clk(35, para->dram_clk);
+			trcd		= ns_to_t_clk(14, para->dram_clk);
+			trp		= ns_to_t_clk(14, para->dram_clk);
+			trc		= ns_to_t_clk(48, para->dram_clk);
+			tras		= ns_to_t_clk(34, para->dram_clk);
 
 			mr0		= 0x1e14;
 			mr2		= 0x20;
@@ -292,23 +366,23 @@ static void mctl_set_timing_params(const dram_para_t *para,
 			t_rdata_en	= 5;
 		}
 
-		trasmax		= CONFIG_DRAM_CLK / 30;
+		trasmax		= para->dram_clk / 30;
 		twtp		= tcwl + 2 + twtr;		// WL+BL/2+tWTR
 		/* Gets overwritten below */
 //		trd2wr		= tcwl + 2 + twr;		// WL+BL/2+tWR
 		twr2rd		= tcwl + twtr;			// WL+tWTR
 
-		tdinit0		= 500 * CONFIG_DRAM_CLK + 1;	// 500 us
-		tdinit1		= 360 * CONFIG_DRAM_CLK / 1000 + 1;   // 360 ns
-		tdinit2		= 200 * CONFIG_DRAM_CLK + 1;	// 200 us
-		tdinit3		= 1 * CONFIG_DRAM_CLK + 1;	//   1 us
+		tdinit0		= 500 * para->dram_clk + 1;	// 500 us
+		tdinit1		= 360 * para->dram_clk / 1000 + 1;   // 360 ns
+		tdinit2		= 200 * para->dram_clk + 1;	// 200 us
+		tdinit3		= 1 * para->dram_clk + 1;	//   1 us
 
 		mr1		= para->dram_mr1;
 		mr3		= 0;
 		tcke		= 3;
 		tcksrx		= 5;
 		tckesr		= 4;
-		if (((config->dram_tpr13 & 0xc) == 0x04) || CONFIG_DRAM_CLK < 912)
+		if (((config->dram_tpr13 & 0xc) == 0x04) || para->dram_clk < 912)
 			trd2wr	   = 5;
 		else
 			trd2wr	   = 6;
@@ -319,24 +393,24 @@ static void mctl_set_timing_params(const dram_para_t *para,
 
 		break;
 	case SUNXI_DRAM_TYPE_LPDDR2:
-		tfaw		= max(ns_to_t(50), 4);
-		trrd		= max(ns_to_t(10), 1);
-		trcd		= max(ns_to_t(24), 2);
-		trc		= ns_to_t(70);
-		txp		= ns_to_t(8);
+		tfaw		= max(ns_to_t_clk(50, para->dram_clk), 4);
+		trrd		= max(ns_to_t_clk(10, para->dram_clk), 1);
+		trcd		= max(ns_to_t_clk(24, para->dram_clk), 2);
+		trc		= ns_to_t_clk(70, para->dram_clk);
+		txp		= ns_to_t_clk(8, para->dram_clk);
 		if (txp < 2) {
 			txp++;
 			twtr	= 2;
 		} else {
 			twtr	= txp;
 		}
-		twr		= max(ns_to_t(15), 2);
-		trp		= ns_to_t(17);
-		tras		= ns_to_t(42);
-		trefi		= ns_to_t(3900) / 32;
-		trfc		= ns_to_t(210);
+		twr		= max(ns_to_t_clk(15, para->dram_clk), 2);
+		trp		= ns_to_t_clk(17, para->dram_clk);
+		tras		= ns_to_t_clk(42, para->dram_clk);
+		trefi		= ns_to_t_clk(3900, para->dram_clk) / 32;
+		trfc		= ns_to_t_clk(210, para->dram_clk);
 
-		trasmax		= CONFIG_DRAM_CLK / 60;
+		trasmax		= para->dram_clk / 60;
 		mr3		= para->dram_mr3;
 		twtp		= twr + 5;
 		mr2		= 6;
@@ -352,10 +426,10 @@ static void mctl_set_timing_params(const dram_para_t *para,
 		wr_latency	= 1;
 		t_rdata_en	= 1;
 
-		tdinit0		= 200 * CONFIG_DRAM_CLK + 1;
-		tdinit1		= 100 * CONFIG_DRAM_CLK / 1000 + 1;
-		tdinit2		= 11 * CONFIG_DRAM_CLK + 1;
-		tdinit3		= 1 * CONFIG_DRAM_CLK + 1;
+		tdinit0		= 200 * para->dram_clk + 1;
+		tdinit1		= 100 * para->dram_clk / 1000 + 1;
+		tdinit2		= 11 * para->dram_clk + 1;
+		tdinit3		= 1 * para->dram_clk + 1;
 		twr2rd		= twtr + 5;
 		tcwl		= 2;
 		mr1		= 195;
@@ -363,20 +437,20 @@ static void mctl_set_timing_params(const dram_para_t *para,
 
 		break;
 	case SUNXI_DRAM_TYPE_LPDDR3:
-		tfaw		= max(ns_to_t(50), 4);
-		trrd		= max(ns_to_t(10), 1);
-		trcd		= max(ns_to_t(24), 2);
-		trc		= ns_to_t(70);
-		twtr		= max(ns_to_t(8), 2);
-		twr		= max(ns_to_t(15), 2);
-		trp		= ns_to_t(17);
-		tras		= ns_to_t(42);
-		trefi		= ns_to_t(3900) / 32;
-		trfc		= ns_to_t(210);
+		tfaw		= max(ns_to_t_clk(50, para->dram_clk), 4);
+		trrd		= max(ns_to_t_clk(10, para->dram_clk), 1);
+		trcd		= max(ns_to_t_clk(24, para->dram_clk), 2);
+		trc		= ns_to_t_clk(70, para->dram_clk);
+		twtr		= max(ns_to_t_clk(8, para->dram_clk), 2);
+		twr		= max(ns_to_t_clk(15, para->dram_clk), 2);
+		trp		= ns_to_t_clk(17, para->dram_clk);
+		tras		= ns_to_t_clk(42, para->dram_clk);
+		trefi		= ns_to_t_clk(3900, para->dram_clk) / 32;
+		trfc		= ns_to_t_clk(210, para->dram_clk);
 		txp		= twtr;
 
-		trasmax		= CONFIG_DRAM_CLK / 60;
-		if (CONFIG_DRAM_CLK < 800) {
+		trasmax		= para->dram_clk / 60;
+		if (para->dram_clk < 800) {
 			tcwl	   = 4;
 			wr_latency = 3;
 			t_rdata_en = 6;
@@ -396,10 +470,10 @@ static void mctl_set_timing_params(const dram_para_t *para,
 		trd2wr		= 13;
 		tcke		= 3;
 		tmod		= 12;
-		tdinit0		= 400 * CONFIG_DRAM_CLK + 1;
-		tdinit1		= 500 * CONFIG_DRAM_CLK / 1000 + 1;
-		tdinit2		= 11 * CONFIG_DRAM_CLK + 1;
-		tdinit3		= 1 * CONFIG_DRAM_CLK + 1;
+		tdinit0		= 400 * para->dram_clk + 1;
+		tdinit1		= 500 * para->dram_clk / 1000 + 1;
+		tdinit2		= 11 * para->dram_clk + 1;
+		tdinit3		= 1 * para->dram_clk + 1;
 		tmrd		= 5;
 		tmrw		= 5;
 		twr2rd		= tcwl + twtr + 5;
@@ -470,7 +544,7 @@ static void mctl_set_timing_params(const dram_para_t *para,
 
 	/* Set dual rank timing */
 	clrsetbits_le32(0x3103078, 0xf000ffff,
-			(CONFIG_DRAM_CLK < 800) ? 0xf0006610 : 0xf0007610);
+			(para->dram_clk < 800) ? 0xf0006610 : 0xf0007610);
 
 	/* Set phy interface time PITMG0, PTR3, PTR4 */
 	writel((0x2 << 24) | (t_rdata_en << 16) | BIT(8) | (wr_latency << 0),
@@ -506,18 +580,25 @@ static int ccu_set_pll_ddr_clk(int index, const dram_para_t *para,
 	writel(val | BIT(29), SUNXI_CCM_BASE + 0x10);
 
 	// wait for PLL to lock
-	while ((readl(SUNXI_CCM_BASE + 0x10) & BIT(28)) == 0)
-		;
+	dram_wait_status(SUNXI_CCM_BASE + 0x10, BIT(28), BIT(28));
 
 	udelay(20);
 
 	// enable PLL output
-	setbits_le32(SUNXI_CCM_BASE + 0x0, BIT(27));
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861))
+		setbits_le32(SUNXI_CCM_BASE + 0x10, BIT(27));
+	else
+		setbits_le32(SUNXI_CCM_BASE + 0x0, BIT(27));
 
 	// turn clock gate on
 	val = readl(SUNXI_CCM_BASE + 0x800);
-	val &= ~0x03000303;		// select DDR clk source, n=1, m=1
-	val |= BIT(31);			// turn clock on
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
+		val &= 0xf8fffce0;
+		val |= 0x81000000;
+	} else {
+		val &= ~0x03000303;
+		val |= BIT(31);
+	}
 	writel(val, SUNXI_CCM_BASE + 0x800);
 
 	return n * 24;
@@ -531,7 +612,9 @@ static void mctl_sys_init(const dram_para_t *para, const dram_config_t *config)
 
 	// turn off sdram clock gate, assert sdram reset
 	clrbits_le32(SUNXI_CCM_BASE + 0x80c, 0x10001);
-	clrsetbits_le32(SUNXI_CCM_BASE + 0x800, BIT(31) | BIT(30), BIT(27));
+	clrsetbits_le32(SUNXI_CCM_BASE + 0x800,
+			BIT(31) | (IS_ENABLED(CONFIG_MACH_SUN252I_V861) ? 0 : BIT(30)),
+			BIT(27));
 	udelay(10);
 
 	// set ddr pll clock
@@ -544,7 +627,8 @@ static void mctl_sys_init(const dram_para_t *para, const dram_config_t *config)
 
 	// release MBUS reset
 	setbits_le32(SUNXI_CCM_BASE + 0x540, BIT(30));
-	setbits_le32(SUNXI_CCM_BASE + 0x800, BIT(30));
+	if (!IS_ENABLED(CONFIG_MACH_SUN252I_V861))
+		setbits_le32(SUNXI_CCM_BASE + 0x800, BIT(30));
 
 	udelay(5);
 
@@ -783,15 +867,19 @@ static unsigned int mctl_channel_init(unsigned int ch_index,
 	}
 
 	clrsetbits_le32(0x31030c0, 0x0fffffff,
-			(config->dram_para2 & BIT(12)) ? 0x03000001 : 0x01000007);
+			(config->dram_para2 & BIT(12)) ? 0x03000001 :
+			(IS_ENABLED(CONFIG_MACH_SUN252I_V861) ? 0x01003087 : 0x01000007));
 
-	if (readl(0x70005d4) & BIT(16)) {
-		clrbits_le32(0x7010250, 0x2);
+	if (dram_is_resume()) {
+		clrbits_le32(IS_ENABLED(CONFIG_MACH_SUN252I_V861) ?
+			    0x070901f4 : 0x07010250,
+			    IS_ENABLED(CONFIG_MACH_SUN252I_V861) ? BIT(2) : BIT(1));
 		udelay(10);
 	}
 
 	// Set ZQ config
-	clrsetbits_le32(0x3103140, 0x3ffffff,
+	clrsetbits_le32(0x3103140,
+			IS_ENABLED(CONFIG_MACH_SUN252I_V861) ? 0x7ffffff : 0x3ffffff,
 			(para->dram_zq & 0x00ffffff) | BIT(25));
 
 	// Initialise DRAM controller
@@ -799,8 +887,7 @@ static unsigned int mctl_channel_init(unsigned int ch_index,
 		//writel(0x52, 0x3103000); // prep PHY reset + PLL init + z-cal
 		writel(0x53, 0x3103000); // Go
 
-		while ((readl(0x3103010) & 0x1) == 0) {
-		} // wait for IDONE
+		dram_wait_status(0x3103010, 0x1, 0x1);
 		udelay(10);
 
 		// 0x520 = prep DQS gating + DRAM init + d-cal
@@ -809,7 +896,7 @@ static unsigned int mctl_channel_init(unsigned int ch_index,
 		else
 			writel(0x520, 0x3103000);
 	} else {
-		if ((readl(0x70005d4) & (1 << 16)) == 0) {
+		if (!dram_is_resume()) {
 			// prep DRAM init + PHY reset + d-cal + PLL init + z-cal
 			if (para->dram_type == SUNXI_DRAM_TYPE_DDR3)
 				writel(0x1f2, 0x3103000);	// + DRAM reset
@@ -824,25 +911,24 @@ static unsigned int mctl_channel_init(unsigned int ch_index,
 	setbits_le32(0x3103000, 0x1);		 // GO
 
 	udelay(10);
-	while ((readl(0x3103010) & 0x1) == 0) {
-	} // wait for IDONE
+	dram_wait_status(0x3103010, 0x1, 0x1);
 
-	if (readl(0x70005d4) & BIT(16)) {
+	if (dram_is_resume()) {
 		clrsetbits_le32(0x310310c, 0x06000000, 0x04000000);
 		udelay(10);
 
 		setbits_le32(0x3103004, 0x1);
 
-		while ((readl(0x3103018) & 0x7) != 0x3) {
-		}
+		dram_wait_status(0x3103018, 0x7, 0x3);
 
-		clrbits_le32(0x7010250, 0x1);
+		clrbits_le32(IS_ENABLED(CONFIG_MACH_SUN252I_V861) ?
+			    0x070901f4 : 0x07010250,
+			    IS_ENABLED(CONFIG_MACH_SUN252I_V861) ? BIT(1) : BIT(0));
 		udelay(10);
 
 		clrbits_le32(0x3103004, 0x1);
 
-		while ((readl(0x3103018) & 0x7) != 0x1) {
-		}
+		dram_wait_status(0x3103018, 0x7, 0x1);
 
 		udelay(15);
 
@@ -852,8 +938,7 @@ static unsigned int mctl_channel_init(unsigned int ch_index,
 			udelay(1);
 			writel(0x401, 0x3103000);
 
-			while ((readl(0x3103010) & 0x1) == 0) {
-			}
+			dram_wait_status(0x3103010, 0x1, 0x1);
 		}
 	}
 
@@ -864,8 +949,7 @@ static unsigned int mctl_channel_init(unsigned int ch_index,
 	}
 
 	// STATR = Zynq STAT? Wait for status 'normal'?
-	while ((readl(0x3103018) & 0x1) == 0) {
-	}
+	dram_wait_status(0x3103018, 0x1, 0x1);
 
 	setbits_le32(0x310308c, BIT(31));
 	udelay(10);
@@ -977,6 +1061,7 @@ static int dramc_simple_wr_test(unsigned int mem_mb, int len)
 		writel(patt1 + i, (unsigned long)addr);
 		writel(patt2 + i, (unsigned long)(addr + offs));
 	}
+	dram_sync_mapping();
 
 	addr = (unsigned int *)CFG_SYS_SDRAM_BASE;
 	for (i = 0; i != len; i++) {
@@ -984,14 +1069,16 @@ static int dramc_simple_wr_test(unsigned int mem_mb, int len)
 		v2 = patt1 + i;
 		if (v1 != v2) {
 			printf("DRAM: simple test FAIL\n");
-			printf("%x != %x at address %p\n", v1, v2, addr + i);
+			printf("%x != %x at address %lx\n", v1, v2,
+			       (unsigned long)(addr + i));
 			return 1;
 		}
 		v1 = readl((unsigned long)(addr + offs + i));
 		v2 = patt2 + i;
 		if (v1 != v2) {
 			printf("DRAM: simple test FAIL\n");
-			printf("%x != %x at address %p\n", v1, v2, addr + offs + i);
+			printf("%x != %x at address %lx\n", v1, v2,
+			       (unsigned long)(addr + offs + i));
 			return 1;
 		}
 	}
@@ -1027,7 +1114,11 @@ static int mctl_core_init(const dram_para_t *para, const dram_config_t *config)
 
 	mctl_com_init(para, config);
 
-	mctl_phy_ac_remapping(para, config);
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861) &&
+	    para->dram_type == SUNXI_DRAM_TYPE_DDR3)
+		sun252i_v861_phy_remap(config->dram_tpr13);
+	else
+		mctl_phy_ac_remapping(para, config);
 
 	mctl_set_timing_params(para, config);
 
@@ -1056,10 +1147,36 @@ static uint32_t get_payload(bool odd, unsigned long int ptr)
 
 static int auto_scan_dram_size(const dram_para_t *para, dram_config_t *config)
 {
+	dram_para_t scan_para = {
+		.dram_clk = 360,
+		.dram_type = para->dram_type,
+		.dram_zq = para->dram_zq,
+		.dram_odt_en = para->dram_odt_en,
+		.dram_mr0 = para->dram_mr0,
+		.dram_mr1 = para->dram_mr1,
+		.dram_mr2 = para->dram_mr2,
+		.dram_mr3 = para->dram_mr3,
+		.dram_tpr0 = para->dram_tpr0,
+		.dram_tpr1 = para->dram_tpr1,
+		.dram_tpr2 = para->dram_tpr2,
+		.dram_tpr3 = para->dram_tpr3,
+		.dram_tpr4 = para->dram_tpr4,
+		.dram_tpr5 = para->dram_tpr5,
+		.dram_tpr6 = para->dram_tpr6,
+		.dram_tpr7 = para->dram_tpr7,
+		.dram_tpr8 = para->dram_tpr8,
+		.dram_tpr9 = para->dram_tpr9,
+		.dram_tpr10 = para->dram_tpr10,
+		.dram_tpr11 = 0x00460000,
+		.dram_tpr12 = 0x55,
+	};
 	unsigned int rval, i, j, rank, maxrank, offs;
 	unsigned int shft;
 	unsigned long ptr, mc_work_mode, chk;
 
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861) &&
+	    para->dram_type == SUNXI_DRAM_TYPE_DDR3)
+		para = &scan_para;
 	if (mctl_core_init(para, config) == 0) {
 		printf("DRAM initialisation error : 0\n");
 		return 0;
@@ -1072,11 +1189,23 @@ static int auto_scan_dram_size(const dram_para_t *para, dram_config_t *config)
 	/* write test pattern */
 	for (i = 0, ptr = CFG_SYS_SDRAM_BASE; i < 64; i++, ptr += 4)
 		writel(get_payload(i & 0x1, ptr), ptr);
+	dram_sync_mapping();
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
+		for (i = 0, ptr = CFG_SYS_SDRAM_BASE; i < 64; i++, ptr += 4) {
+			rval = readl(ptr);
+			if (rval != get_payload(i & 1, ptr)) {
+				printf("DRAM: scan baseline failed at %lx: %x expected %x\n",
+				       ptr, rval, get_payload(i & 1, ptr));
+				return 0;
+			}
+		}
+	}
 
 	for (rank = 0; rank < maxrank;) {
 		/* set row mode */
 		clrsetbits_le32(mc_work_mode, 0xf0c, 0x6f0);
 		udelay(1);
+		dram_sync_mapping();
 
 		// Scan per address line, until address wraps (i.e. see shadow)
 		for (i = 11; i < 17; i++) {
@@ -1108,6 +1237,7 @@ static int auto_scan_dram_size(const dram_para_t *para, dram_config_t *config)
 		/* Set bank mode for current rank */
 		clrsetbits_le32(mc_work_mode, 0xffc, 0x6a4);
 		udelay(1);
+		dram_sync_mapping();
 
 		// Test if bit A23 is BA2 or mirror XXX A22?
 		chk = CFG_SYS_SDRAM_BASE + (1U << 22);
@@ -1136,6 +1266,7 @@ static int auto_scan_dram_size(const dram_para_t *para, dram_config_t *config)
 		/* Set page mode for current rank */
 		clrsetbits_le32(mc_work_mode, 0xffc, 0xaa0);
 		udelay(1);
+		dram_sync_mapping();
 
 		// Scan per address line, until address wraps (i.e. see shadow)
 		for (i = 9; i < 14; i++) {
@@ -1269,7 +1400,10 @@ static int init_DRAM(int type, const dram_para_t *para)
 		debug("DRAMC ZQ value: 0x%x\n", para->dram_zq);
 
 	/* Test ZQ status */
-	if (config.dram_tpr13 & BIT(16)) {
+	if (IS_ENABLED(CONFIG_MACH_SUN252I_V861)) {
+		if (sun252i_v861_zq_init(config.dram_tpr13))
+			return 0;
+	} else if (config.dram_tpr13 & BIT(16)) {
 		debug("DRAM only have internal ZQ\n");
 		setbits_le32(0x3000160, BIT(8));
 		writel(0, 0x3000168);
@@ -1373,7 +1507,7 @@ static const dram_para_t para = {
 	.dram_zq	= CONFIG_DRAM_ZQ,
 	.dram_odt_en	= CONFIG_DRAM_SUNXI_ODT_EN,
 	.dram_mr0	= 0x1c70,
-	.dram_mr1	= 0x42,
+	.dram_mr1	= CONFIG_DRAM_SUNXI_MR1,
 	.dram_mr2	= 0x18,
 	.dram_mr3	= 0,
 	.dram_tpr0	= 0x004a2195,
@@ -1383,7 +1517,7 @@ static const dram_para_t para = {
 	.dram_tpr4	= 0,
 	.dram_tpr5	= 0x48484848,
 	.dram_tpr6	= 0x00000048,
-	.dram_tpr7	= 0x1620121e, // unused
+	.dram_tpr7	= CONFIG_DRAM_SUNXI_TPR7, // unused
 	.dram_tpr8	= 0,
 	.dram_tpr9	= 0, // clock?
 	.dram_tpr10	= 0,
