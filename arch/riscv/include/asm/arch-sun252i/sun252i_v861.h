@@ -10,5 +10,8 @@ void sun252i_v861_cpu_init(void);
 void sun252i_v861_uart_init(void);
 unsigned long sunxi_dram_init(void);
 void sun252i_v861_i2c2_init(void);
+void sun252i_v861_spif_init(void);
+void sun252i_v861_spif_disable(void);
+int sun252i_v861_spif_set_clock(unsigned int speed);
 
 #endif

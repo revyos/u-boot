@@ -25,6 +25,61 @@
 #define SUN252I_V861_PLL_N		GENMASK(15, 8)
 #define SUN252I_V861_PLL_P0		GENMASK(18, 16)
 
+#define SUN252I_V861_SPIF_CLK_ENABLE	BIT(31)
+#define SUN252I_V861_SPIF_CLK_SOURCE	GENMASK(26, 24)
+#define SUN252I_V861_SPIF_CLK_N	GENMASK(9, 8)
+#define SUN252I_V861_SPIF_CLK_M	GENMASK(3, 0)
+
+void sun252i_v861_spif_disable(void)
+{
+	clrbits_le32((void *)(SUN252I_V861_CCU_BASE + 0x950), BIT(31));
+}
+
+int sun252i_v861_spif_set_clock(unsigned int speed)
+{
+	void __iomem *clock = (void *)(SUN252I_V861_CCU_BASE + 0x950);
+	unsigned int parent = 24000000, source = 0, div, n = 0;
+	int ret;
+
+	if (!speed)
+		return -EINVAL;
+	speed = min(speed, 50000000U);
+	if (speed > parent) {
+		ret = sun252i_v861_peri400m_rate(&parent);
+		if (ret)
+			return ret;
+		source = 1;
+	}
+	div = DIV_ROUND_UP(parent, speed);
+	while (div > 16 && n < 3) {
+		n++;
+		div = DIV_ROUND_UP(parent, speed * (1U << n));
+	}
+	if (div > 16)
+		return -EINVAL;
+	writel(0, clock);
+	writel(SUN252I_V861_SPIF_CLK_ENABLE |
+	       FIELD_PREP(SUN252I_V861_SPIF_CLK_SOURCE, source) |
+	       FIELD_PREP(SUN252I_V861_SPIF_CLK_N, n) |
+	       FIELD_PREP(SUN252I_V861_SPIF_CLK_M, div - 1), clock);
+	return 0;
+}
+
+void sun252i_v861_spif_init(void)
+{
+	void __iomem *bgr = (void *)(SUN252I_V861_CCU_BASE + 0x96c);
+	unsigned int pin;
+
+	for (pin = SUNXI_GPC(0); pin <= SUNXI_GPC(5); pin++)
+		sunxi_gpio_set_cfgpin(pin, SUN252I_V861_GPC_SPIF);
+	sunxi_gpio_set_pull(SUNXI_GPC(1), SUNXI_GPIO_PULL_UP);
+	sunxi_gpio_set_pull(SUNXI_GPC(4), SUNXI_GPIO_PULL_UP);
+	sunxi_gpio_set_pull(SUNXI_GPC(5), SUNXI_GPIO_PULL_UP);
+	sun252i_v861_spif_set_clock(24000000);
+	clrbits_le32(bgr, BIT(20));
+	setbits_le32(bgr, BIT(20) | BIT(4));
+}
+
 int sun252i_v861_peri400m_rate(unsigned int *rate)
 {
 	void __iomem *pll = (void __iomem *)(SUN252I_V861_CCU_BASE + 0x20);

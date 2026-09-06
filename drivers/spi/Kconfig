@@ -555,6 +555,15 @@ config SPI_SN_F_OSPI
 	  for connecting an SPI flash memory over up to 8-bit wide bus.
 	  It supports indirect access mode only.
 
+config SPI_SUNXI_SPIF
+	bool "Allwinner SPI flash controller"
+	depends on MACH_SUN252I_V861
+	select SPI_MEM
+	help
+	  Enable the dedicated SPI flash controller on Allwinner V861/V881.
+	  Supports single-lane SPI memory operations using internal DMA.
+	  The driver is shared by SPL and U-Boot proper.
+
 config SPI_SUNXI
 	bool "Allwinner SoC SPI controllers"
 	default ARCH_SUNXI
