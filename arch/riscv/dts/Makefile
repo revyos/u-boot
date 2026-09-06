@@ -14,6 +14,7 @@ dtb-$(CONFIG_TARGET_XILINX_MBV) += xilinx-mbv32.dtb
 dtb-$(CONFIG_TARGET_XILINX_MBV) += xilinx-mbv64.dtb
 dtb-$(CONFIG_TARGET_XILINX_MBV) += xilinx-binman.dtb
 dtb-$(CONFIG_TARGET_ASPEED_AST2700_IBEX) += ast2700-ibex.dtb
+dtb-$(CONFIG_TARGET_SUN252I) += sun252i-v861-avaota-f2.dtb
 
 include $(srctree)/scripts/Makefile.dts
 

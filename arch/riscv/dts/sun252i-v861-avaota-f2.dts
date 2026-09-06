@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/* Copyright (c) 2026 Han Gao <gaohan@iscas.ac.cn> */
+
+/dts-v1/;
+#include "sun252i-v861.dtsi"
+
+/ {
+	model = "Avaota F2";
+	compatible = "avaota,avaota-f2", "allwinner,sun252i-v861";
+
+	aliases {
+		i2c2 = &i2c2;
+		mmc0 = &mmc0;
+		serial0 = &uart0;
+		spi0 = &spif;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@40000000 {
+		device_type = "memory";
+		/* The bootloader supplies the detected capacity. */
+		reg = <0x40000000 0>;
+	};
+};
+
+&mmc0 {
+	bus-width = <4>;
+	max-frequency = <50000000>;
+	cap-sd-highspeed;
+	broken-cd;
+	disable-wp;
+	status = "okay";
+};
+
+&i2c2 {
+	clock-frequency = <100000>;
+	status = "okay";
+
+	axp333: pmic@36 {
+		compatible = "x-powers,axp333";
+		reg = <0x36>;
+
+		regulators {
+			reg_dcdc1: dcdc1 {
+				regulator-name = "axp333-dcdc1";
+			};
+
+			reg_dcdc2: dcdc2 {
+				regulator-name = "vcc-dram";
+				regulator-min-microvolt = <1500000>;
+				regulator-max-microvolt = <1500000>;
+				regulator-always-on;
+			};
+
+			reg_dcdc3: dcdc3 {
+				regulator-name = "axp333-dcdc3";
+			};
+
+			reg_aldo1: aldo1 {
+				regulator-name = "axp333-aldo1";
+			};
+
+			reg_aldo2: aldo2 {
+				regulator-name = "axp333-aldo2";
+			};
+
+			reg_rtc_ldo: rtc-ldo {
+				regulator-name = "axp333-rtc-ldo";
+			};
+		};
+	};
+};
+
+&spif {
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		spi-rx-bus-width = <1>;
+		spi-tx-bus-width = <1>;
+	};
+};
+
+&watchdog {
+	status = "okay";
+};
+
+&uart0 {
+	current-speed = <115200>;
+	status = "okay";
+};
