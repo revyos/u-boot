@@ -1587,6 +1587,19 @@ F:	drivers/timer/andes_plmt_timer.c
 F:	drivers/timer/riscv_aclint_timer.c
 F:	tools/prelink-riscv.c
 
+RISC-V ALLWINNER V861/V881
+M:	Han Gao <gaohan@iscas.ac.cn>
+S:	Maintained
+F:	arch/riscv/cpu/sun252i/
+F:	arch/riscv/dts/sun252i-v861*
+F:	arch/riscv/include/asm/arch-sun252i/
+F:	board/sunxi/sun252i_v861*.c
+F:	configs/avaota_f2_defconfig
+F:	doc/board/allwinner/sunxi.rst
+F:	drivers/ram/sunxi/dram_sun252i_v861.h
+F:	drivers/spi/spi-sunxi-spif.c
+F:	include/configs/sun252i.h
+
 RISC-V CANAAN KENDRYTE K210
 M:	Sean Anderson <seanga2@gmail.com>
 S:	Maintained

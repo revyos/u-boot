@@ -31,4 +31,23 @@ config DRAM_ZQ
 	int
 	default 8088571
 
+config SYS_BOARD
+	default "sunxi"
+
+config SYS_CPU
+	default "sun252i"
+
+config SYS_CONFIG_NAME
+	default "sun252i"
+
+config TEXT_BASE
+	default 0x42000000
+
+config SPL_IMAGE_TYPE
+	default "sunxi_egon"
+
+config BOARD_SPECIFIC_OPTIONS
+	def_bool y
+	select OF_HAS_PRIOR_STAGE
+
 endif
