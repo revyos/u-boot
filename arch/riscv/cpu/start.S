@@ -39,6 +39,10 @@ secondary_harts_relocation_error:
 .section .text
 .globl _start
 _start:
+#if defined(CONFIG_MACH_SUN252I_V861) && defined(CONFIG_SPL_BUILD)
+#include <asm/arch/boot0.h>
+sun252i_v861_c907_start:
+#endif
 #if CONFIG_IS_ENABLED(RISCV_MMODE)
 	csrr	a0, CSR_MHARTID
 #endif
