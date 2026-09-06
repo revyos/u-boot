@@ -26,6 +26,7 @@ struct sunxi_wdt_reg {
 	u8 wdt_reset_mask;
 	u8 wdt_reset_val;
 	u32 wdt_key_val;
+	const u8 *timeout_map;
 };
 
 struct sunxi_wdt_priv {
@@ -54,6 +55,12 @@ static const u8 wdt_timeout_map[1 + WDT_MAX_TIMEOUT] = {
 	[16]	= 0xb,
 };
 
+/* V861/V881 use codes 0x5..0xf for the 1..16 second intervals. */
+static const u8 sun252i_v861_timeout_map[1 + WDT_MAX_TIMEOUT] = {
+	0x0, 0x5, 0x6, 0x7, 0x8, 0x9, 0xa, 0xb, 0xb,
+	0xc, 0xc, 0xd, 0xd, 0xe, 0xe, 0xf, 0xf,
+};
+
 static int sunxi_wdt_reset(struct udevice *dev)
 {
 	struct sunxi_wdt_priv *priv = dev_get_priv(dev);
@@ -70,11 +77,14 @@ static int sunxi_wdt_start(struct udevice *dev, u64 timeout, ulong flags)
 	struct sunxi_wdt_priv *priv = dev_get_priv(dev);
 	const struct sunxi_wdt_reg *regs = priv->regs;
 	void __iomem *base = priv->base;
+	const u8 *timeout_map = regs->timeout_map ?: wdt_timeout_map;
 	u32 val;
 
-	timeout /= MSEC_PER_SEC;
-	if (timeout > WDT_MAX_TIMEOUT)
-		timeout = WDT_MAX_TIMEOUT;
+	timeout = min_t(u64, timeout, WDT_MAX_TIMEOUT * MSEC_PER_SEC);
+	if (regs->timeout_map)
+		timeout = DIV_ROUND_UP(timeout, MSEC_PER_SEC);
+	else
+		timeout /= MSEC_PER_SEC;
 
 	/* Set system reset function */
 	val = readl(base + regs->wdt_cfg);
@@ -86,7 +96,7 @@ static int sunxi_wdt_start(struct udevice *dev, u64 timeout, ulong flags)
 	/* Set timeout and enable watchdog */
 	val = readl(base + regs->wdt_mode);
 	val &= ~(WDT_TIMEOUT_MASK << regs->wdt_timeout_shift);
-	val |= wdt_timeout_map[timeout] << regs->wdt_timeout_shift;
+	val |= timeout_map[timeout] << regs->wdt_timeout_shift;
 	val |= WDT_MODE_EN;
 	val |= regs->wdt_key_val;
 	writel(val, base + regs->wdt_mode);
@@ -163,11 +173,23 @@ static const struct sunxi_wdt_reg sun55i_wdt_reg = {
 	.wdt_key_val		= 0x16aa0000,
 };
 
+static const struct sunxi_wdt_reg sun252i_v861_wdt_reg = {
+	.wdt_ctrl		= 0x10,
+	.wdt_cfg		= 0x14,
+	.wdt_mode		= 0x18,
+	.wdt_timeout_shift	= 4,
+	.wdt_reset_mask		= 0x03,
+	.wdt_reset_val		= 0x01,
+	.wdt_key_val		= 0x16aa0000,
+	.timeout_map		= sun252i_v861_timeout_map,
+};
+
 static const struct udevice_id sunxi_wdt_ids[] = {
 	{ .compatible = "allwinner,sun4i-a10-wdt", .data = (ulong)&sun4i_wdt_reg },
 	{ .compatible = "allwinner,sun6i-a31-wdt", .data = (ulong)&sun6i_wdt_reg },
 	{ .compatible = "allwinner,sun20i-d1-wdt", .data = (ulong)&sun20i_wdt_reg },
 	{ .compatible = "allwinner,sun55i-a523-wdt", .data = (ulong)&sun55i_wdt_reg },
+	{ .compatible = "allwinner,sun252i-v861-wdt", .data = (ulong)&sun252i_v861_wdt_reg },
 	{ /* sentinel */ }
 };
 
