@@ -10,6 +10,9 @@ config MACH_SUN252I_V861
 	select BINMAN
 	select SUPPORT_SPL
 	select SYS_CACHE_SHIFT_6
+	select SUNXI_GPIO
+	select SUNXI_NEW_PINCTRL
+	imply SPL_GPIO
 	imply CPU
 	imply CPU_RISCV
 	imply CMD_CPU

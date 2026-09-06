@@ -13,7 +13,10 @@
 
 #include <linux/types.h>
 
-#if defined(CONFIG_MACH_SUN9I)
+#if defined(CONFIG_MACH_SUN252I_V861)
+#define SUNXI_PIO_BASE		0x02000000
+#define SUNXI_R_PIO_BASE	0x02000540
+#elif defined(CONFIG_MACH_SUN9I)
 #define SUNXI_PIO_BASE		0x06000800
 #define SUNXI_R_PIO_BASE	0x08002c00
 #elif defined(CONFIG_SUN50I_GEN_H6)
@@ -124,6 +127,7 @@ enum sunxi_gpio_number {
 #define SUN6I_GPC_SDC3		4
 #define SUN50I_GPC_SPI0		4
 #define SUNIV_GPC_SPI0		2
+#define SUN252I_V861_GPC_SPIF	2
 
 #define SUNXI_GPD_LCD0		2
 #define SUNXI_GPD_LVDS0		3
@@ -154,6 +158,7 @@ enum sunxi_gpio_number {
 #define SUN9I_GPH_UART0		2
 #define SUN50I_H6_GPH_UART0	2
 #define SUN50I_H616_GPH_UART0	2
+#define SUN252I_V861_GPH_UART0	5
 
 #define SUNXI_GPI_SDC3		2
 
@@ -166,6 +171,7 @@ enum sunxi_gpio_number {
 #define SUN8I_GPL_R_UART	2
 #define SUN50I_GPL_R_TWI	2
 #define SUN50I_H616_GPL_R_TWI	3
+#define SUN252I_V861_GPL_TWI2	2
 
 #define SUN9I_GPN_R_RSB		3
 
