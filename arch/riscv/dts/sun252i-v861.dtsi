@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/* Copyright (c) 2026 Han Gao <gaohan@iscas.ac.cn> */
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <24000000>;
+
+		cpu0: cpu@0 {
+			compatible = "thead,c907", "riscv";
+			device_type = "cpu";
+			reg = <0>;
+			riscv,isa-base = "rv32i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "b", "v",
+				"zicbom", "zicbop", "zicboz", "zicntr", "zicond",
+				"zicsr", "zifencei", "zihintntl", "zihintpause",
+				"zihpm", "zawrs", "zfa", "zfbfmin", "zfh",
+				"zba", "zbb", "zbc", "zbs", "sscofpmf",
+				"zvfbfmin", "zvfbfwma", "svinval", "svnapot",
+				"svpbmt";
+			riscv,cbom-block-size = <64>;
+			riscv,cbop-block-size = <64>;
+			riscv,cboz-block-size = <64>;
+			mmu-type = "riscv,sv32";
+			status = "okay";
+
+			cpu0_intc: interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+		};
+
+		cpu1: cpu@1 {
+			compatible = "thead,c907", "riscv";
+			device_type = "cpu";
+			reg = <1>;
+			riscv,isa-base = "rv32i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "b", "v",
+				"zicbom", "zicbop", "zicboz", "zicntr", "zicond",
+				"zicsr", "zifencei", "zihintntl", "zihintpause",
+				"zihpm", "zawrs", "zfa", "zfbfmin", "zfh",
+				"zba", "zbb", "zbc", "zbs", "sscofpmf",
+				"zvfbfmin", "zvfbfwma", "svinval", "svnapot",
+				"svpbmt";
+			riscv,cbom-block-size = <64>;
+			riscv,cbop-block-size = <64>;
+			riscv,cboz-block-size = <64>;
+			mmu-type = "riscv,sv32";
+			status = "okay";
+
+			cpu1_intc: interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+		};
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		mmc0: mmc@4020000 {
+			compatible = "allwinner,sun252i-v861-mmc";
+			reg = <0x04020000 0x1000>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@2502800 {
+			compatible = "allwinner,sun252i-v861-i2c",
+				     "allwinner,sun6i-a31-i2c";
+			reg = <0x02502800 0x400>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		spif: spi@4f00000 {
+			compatible = "allwinner,sun252i-v861-spif";
+			reg = <0x04f00000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		watchdog: watchdog@8009000 {
+			compatible = "allwinner,sun252i-v861-wdt";
+			reg = <0x08009000 0x40>;
+			status = "disabled";
+		};
+
+		plic: interrupt-controller@30000000 {
+			compatible = "allwinner,thead,c900-plic",
+				     "thead,c900-plic";
+			reg = <0x30000000 0x00402000>;
+			interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>,
+					      <&cpu1_intc 11>, <&cpu1_intc 9>;
+			riscv,ndev = <150>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			#address-cells = <0>;
+		};
+
+		clint: timer@34000000 {
+			compatible = "thead,c900-clint";
+			reg = <0x34000000 0x00010000>;
+			interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>,
+					      <&cpu1_intc 3>, <&cpu1_intc 7>;
+		};
+
+		uart0: serial@2500000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x02500000 0x400>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			clock-frequency = <24000000>;
+			status = "disabled";
+		};
+	};
+};
