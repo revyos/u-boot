@@ -149,8 +149,12 @@ enum mvstwsi_status_values {
 	MVTWSI_STATUS_REPEATED_START	= 0x10,
 	/* Address + write bit transmitted, ACK received */
 	MVTWSI_STATUS_ADDR_W_ACK	= 0x18,
+	/* Address + write bit transmitted, ACK not received */
+	MVTWSI_STATUS_ADDR_W_NAK	= 0x20,
 	/* Data transmitted, ACK received */
 	MVTWSI_STATUS_DATA_W_ACK	= 0x28,
+	/* Data transmitted, ACK not received */
+	MVTWSI_STATUS_DATA_W_NAK	= 0x30,
 	/* Address + read bit transmitted, ACK received */
 	MVTWSI_STATUS_ADDR_R_ACK	= 0x40,
 	/* Address + read bit transmitted, ACK not received */
@@ -245,8 +249,8 @@ enum mvtwsi_error_class {
  * mvtwsi_error() - Build I2C return code from error information
  *
  * For debugging purposes, this function packs some information of an occurred
- * error into a return code. These error codes are returned from I2C API
- * functions (i2c_{read,write}, dm_i2c_{read,write}, etc.).
+ * error into the legacy I2C return code. Driver model requires negative
+ * errno values so that PMIC register reads can distinguish errors from data.
  *
  * @ec:		The error class of the error (enum mvtwsi_error_class).
  * @lc:		The last value of the control register.
@@ -254,8 +258,21 @@ enum mvtwsi_error_class {
  * @es:		The expected value of the status register.
  * Return: The generated error code.
  */
-inline uint mvtwsi_error(uint ec, uint lc, uint ls, uint es)
+static int mvtwsi_error(uint ec, uint lc, uint ls, uint es)
 {
+	if (CONFIG_IS_ENABLED(DM_I2C)) {
+		debug("mvtwsi: error %u, control %#x, status %#x, expected %#x\n",
+		      ec, lc, ls, es);
+		if (ec == MVTWSI_ERROR_TIMEOUT)
+			return -ETIMEDOUT;
+		if (ls == MVTWSI_STATUS_ADDR_W_NAK ||
+		    ls == MVTWSI_STATUS_ADDR_R_NAK)
+			return -ENXIO;
+		if (ls == MVTWSI_STATUS_DATA_W_NAK)
+			return -EREMOTEIO;
+		return -EIO;
+	}
+
 	return ((ec << 24) & 0xFF000000)
 	       | ((lc << 16) & 0x00FF0000)
 	       | ((ls << 8) & 0x0000FF00)
@@ -909,13 +926,15 @@ static int mvtwsi_i2c_xfer(struct udevice *bus, struct i2c_msg *msg, int nmsgs)
 
 	/* We expect either two messages (one with an offset and one with the
 	 * actual data) or one message (just data or offset/data combined) */
-	if (nmsgs > 2 || nmsgs == 0) {
+	if (nmsgs > 2 || nmsgs <= 0) {
 		debug("%s: Only one or two messages are supported.", __func__);
-		return -1;
+		return -EINVAL;
 	}
 
 	omsg = nmsgs == 1 ? &dummy : msg;
 	dmsg = nmsgs == 1 ? msg : msg + 1;
+	if (omsg->len > sizeof(addr_buf))
+		return -EINVAL;
 
 	/* We need to swap the register address if its size is > 1 */
 	addr_buf_ptr = &addr_buf[0];
