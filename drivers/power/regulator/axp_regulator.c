@@ -402,6 +402,41 @@ static const struct axp_regulator_plat axp813_regulators[] = {
 	{ }
 };
 
+static const struct axp_regulator_range axp333_dcdc1_ranges[] = {
+	{ 500, 0x00, 0x46, 10 },
+	{ 1220, 0x47, 0x57, 20 },
+	{ 1600, 0x58, 0x6a, 100 },
+};
+
+static const struct axp_regulator_range axp333_dcdc3_ranges[] = {
+	{ 500, 0x00, 0x46, 10 },
+	{ 1220, 0x47, 0x66, 20 },
+	{ 3100, 0x67, 0x6a, 100 },
+};
+
+static const struct axp_regulator_range axp333_aldo_ranges[] = {
+	{ 500, 0, 30, 100 },
+};
+
+static const struct axp_regulator_plat axp333_regulators[] = {
+	{ "dcdc1", 0x10, BIT(0), 0x13, 0x7f, 500, 3400,
+		.ranges = axp333_dcdc1_ranges,
+		.num_ranges = ARRAY_SIZE(axp333_dcdc1_ranges) },
+	{ "dcdc2", 0x10, BIT(1), 0x14, 0x7f, 500, 1840,
+		.ranges = axp333_dcdc3_ranges, .num_ranges = 2 },
+	{ "dcdc3", 0x10, BIT(2), 0x15, 0x7f, 500, 3400,
+		.ranges = axp333_dcdc3_ranges,
+		.num_ranges = ARRAY_SIZE(axp333_dcdc3_ranges) },
+	{ "aldo1", 0x10, BIT(3), 0x16, 0x1f, 500, 3500,
+		.ranges = axp333_aldo_ranges,
+		.num_ranges = ARRAY_SIZE(axp333_aldo_ranges) },
+	{ "aldo2", 0x10, BIT(4), 0x17, 0x1f, 500, 3500,
+		.ranges = axp333_aldo_ranges,
+		.num_ranges = ARRAY_SIZE(axp333_aldo_ranges) },
+	{ "rtc-ldo", NA, 0, NA, 0, 1800, 1800 },
+	{ }
+};
+
 static const struct axp_regulator_plat *const axp_regulators[] = {
 	[AXP152_ID]	= axp152_regulators,
 	[AXP202_ID]	= axp20x_regulators,
@@ -411,6 +446,7 @@ static const struct axp_regulator_plat *const axp_regulators[] = {
 	[AXP313_ID]	= axp313_regulators,
 	[AXP318_ID]	= axp318_regulators,
 	[AXP323_ID]	= axp313_regulators,
+	[AXP333_ID]	= axp333_regulators,
 	[AXP717_ID]	= axp717_regulators,
 	[AXP803_ID]	= axp803_regulators,
 	[AXP806_ID]	= axp806_regulators,
