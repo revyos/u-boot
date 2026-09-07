@@ -47,8 +47,12 @@ static inline void do_cbo_inval(unsigned long base)
 static void cbo_op(int op_type, unsigned long start,
 		   unsigned long end)
 {
-	unsigned long op_size = end - start, size = 0;
+	unsigned long block_mask = zicbom_block_size - 1;
+	unsigned long last;
 	void (*fn)(unsigned long base);
+
+	if (start >= end)
+		return;
 
 	switch (op_type) {
 	case CBO_CLEAN:
@@ -60,11 +64,16 @@ static void cbo_op(int op_type, unsigned long start,
 	case CBO_INVAL:
 		fn = do_cbo_inval;
 		break;
+	default:
+		return;
 	}
-	start &= ~(UL(zicbom_block_size - 1));
-	while (size < op_size) {
-		fn(start + size);
-		size += zicbom_block_size;
+	start &= ~block_mask;
+	last = (end - 1) & ~block_mask;
+	for (;;) {
+		fn(start);
+		if (start == last)
+			break;
+		start += zicbom_block_size;
 	}
 }
 
