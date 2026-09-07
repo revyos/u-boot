@@ -5,7 +5,7 @@
  */
 
 #include <command.h>
-#include <asm/arch/pmic_bus.h>
+#include <power/sunxi_pmic_bus.h>
 #include <axp_pmic.h>
 #include <linux/delay.h>
 #include <linux/errno.h>

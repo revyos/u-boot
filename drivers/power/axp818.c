@@ -12,7 +12,7 @@
 
 #include <command.h>
 #include <errno.h>
-#include <asm/arch/pmic_bus.h>
+#include <power/sunxi_pmic_bus.h>
 #include <axp_pmic.h>
 
 static u8 axp818_mvolt_to_cfg(int mvolt, int min, int max, int div)

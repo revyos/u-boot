@@ -52,6 +52,15 @@ source "drivers/power/pmic/Kconfig"
 
 source "drivers/power/regulator/Kconfig"
 
+config AXP_PMIC_BUS
+	bool
+	depends on ARCH_SUNXI
+	select DM_PMIC if DM_I2C
+	select PMIC_AXP if DM_I2C
+	help
+	  Select this PMIC bus access helpers for Sunxi platform PRCM or other
+	  AXP family PMIC devices.
+
 choice
 	prompt "Select Sunxi PMIC Variant"
 	depends on ARCH_SUNXI

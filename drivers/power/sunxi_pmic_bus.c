@@ -10,11 +10,14 @@
 
 #include <axp_pmic.h>
 #include <dm.h>
-#include <asm/arch/p2wi.h>
-#include <asm/arch/rsb.h>
 #include <i2c.h>
 #include <power/pmic.h>
-#include <asm/arch/pmic_bus.h>
+#include <power/sunxi_pmic_bus.h>
+
+#if !CONFIG_IS_ENABLED(PMIC_AXP)
+#include <asm/arch/p2wi.h>
+#include <asm/arch/rsb.h>
+#endif
 
 #define AXP221_CHIP_ADDR		0x68
 

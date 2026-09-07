@@ -216,14 +216,6 @@ config SUNXI_SYSCON
 	  Enable syscon driver for Allwinner system controllers, which provides
 	  access to the SRAM/system-control node for drivers.
 
-config AXP_PMIC_BUS
-	bool
-	select DM_PMIC if DM_I2C
-	select PMIC_AXP if DM_I2C
-	help
-	  Select this PMIC bus access helpers for Sunxi platform PRCM or other
-	  AXP family PMIC devices.
-
 config SUNXI_SRAM_ADDRESS
 	hex
 	default 0x10000 if MACH_SUN9I || MACH_SUN50I || MACH_SUN50I_H5

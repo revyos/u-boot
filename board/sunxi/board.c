@@ -28,7 +28,7 @@
 #include <asm/arch/dram.h>
 #include <asm/arch/mmc.h>
 #include <asm/arch/prcm.h>
-#include <asm/arch/pmic_bus.h>
+#include <power/sunxi_pmic_bus.h>
 #include <asm/arch/spl.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/global_data.h>

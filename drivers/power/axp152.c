@@ -5,7 +5,7 @@
  */
 #include <command.h>
 #include <linux/errno.h>
-#include <asm/arch/pmic_bus.h>
+#include <power/sunxi_pmic_bus.h>
 #include <axp_pmic.h>
 
 static u8 axp152_mvolt_to_target(int mvolt, int min, int max, int div)

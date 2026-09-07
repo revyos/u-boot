@@ -6,7 +6,7 @@
 
 #include <errno.h>
 #include <linux/types.h>
-#include <asm/arch/pmic_bus.h>
+#include <power/sunxi_pmic_bus.h>
 #include <axp_pmic.h>
 
 struct axp_reg_desc_spl {

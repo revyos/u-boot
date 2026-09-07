@@ -7,6 +7,7 @@ obj-$(CONFIG_$(PHASE_)ACPI_PMC) += acpi_pmc/
 obj-$(CONFIG_$(PHASE_)POWER_DOMAIN) += domain/
 obj-y += pmic/
 obj-y += regulator/
+obj-$(CONFIG_AXP_PMIC_BUS) += sunxi_pmic_bus.o
 
 obj-$(CONFIG_AXP221_POWER)	+= axp221.o
 ifdef CONFIG_XPL_BUILD
