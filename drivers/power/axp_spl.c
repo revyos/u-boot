@@ -67,6 +67,20 @@ static const struct axp_reg_desc_spl axp_spl_dcdc_regulators[] = {
 #define AXP_SHUTDOWN_REG	0x1a
 #define AXP_SHUTDOWN_MASK	BIT(7)
 
+#elif defined(CONFIG_AXP333_POWER)				/* AXP333 */
+
+/* Core voltage uses the first linear range; DCDC2 supplies DDR. */
+static const struct axp_reg_desc_spl axp_spl_dcdc_regulators[] = {
+	[0] = { 0x10, BIT(0), 0x13, 0x7f, 500, 1200, 10, NA },
+	[1] = { 0x10, BIT(1), 0x14, 0x7f, 500, 1840, 10, 70 },
+};
+
+#define AXP_CHIP_VERSION	0x3
+#define AXP_CHIP_VERSION_MASK	0xcf
+#define AXP_CHIP_ID		0x4a
+#define AXP_SHUTDOWN_REG	0x1a
+#define AXP_SHUTDOWN_MASK	BIT(7)
+
 #elif defined(CONFIG_AXP318W_POWER)				/* AXP318W */
 
 static const struct axp_reg_desc_spl axp_spl_dcdc_regulators[] = {
@@ -136,6 +150,8 @@ static int axp_set_dcdc(int dcdc_num, unsigned int mvolt)
 		return -EINVAL;
 
 	reg = &axp_spl_dcdc_regulators[dcdc_num - 1];
+	if (!reg->enable_mask)
+		return -EINVAL;
 
 	if (mvolt == 0)
 		return pmic_bus_clrbits(reg->enable_reg, reg->enable_mask);

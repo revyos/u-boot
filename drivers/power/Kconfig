@@ -68,6 +68,7 @@ choice
 	default AXP221_POWER if MACH_SUN6I || MACH_SUN8I_A23 || MACH_SUN8I_A33 || MACH_SUN8I_R40
 	default AXP818_POWER if MACH_SUN8I_A83T
 	default AXP318W_POWER if MACH_SUN60I_A733
+	default AXP333_POWER if MACH_SUN252I_V861
 	default SUNXI_NO_PMIC if MACH_SUNXI_H3_H5 || MACH_SUN50I || MACH_SUN8I_V3S
 
 config SUNXI_NO_PMIC
@@ -119,6 +120,13 @@ config AXP313_POWER
 	help
 	  Select this to enable support for the AXP313 PMIC found on some
 	  H616 boards.
+
+config AXP333_POWER
+	bool "AXP333 PMIC support"
+	select AXP_PMIC_BUS
+	help
+	  Select this to configure the AXP333 core and DDR supplies in SPL using the
+	  sunxi PMIC voltage settings.
 
 config AXP717_POWER
 	bool "axp717 pmic support"
@@ -173,6 +181,7 @@ config AXP_I2C_ADDRESS
 	default 0x36 if AXP305_POWER
 	default 0x36 if AXP313_POWER
 	default 0x36 if AXP318W_POWER
+	default 0x36 if AXP333_POWER
 	default 0x30 if AXP152_POWER
 	default 0x34
 	help
@@ -180,7 +189,9 @@ config AXP_I2C_ADDRESS
 
 config AXP_DCDC1_VOLT
 	int "axp pmic dcdc1 voltage"
-	depends on AXP221_POWER || AXP809_POWER || AXP818_POWER || AXP803_POWER
+	depends on AXP221_POWER || AXP333_POWER || AXP809_POWER || AXP818_POWER || AXP803_POWER
+	range 500 1200 if AXP333_POWER
+	default 940 if AXP333_POWER
 	default 3300 if AXP818_POWER || MACH_SUN8I_R40 || AXP803_POWER
 	default 3000 if MACH_SUN6I || MACH_SUN8I || MACH_SUN9I
 	help
@@ -191,10 +202,14 @@ config AXP_DCDC1_VOLT
 	  save battery. On A31 devices dcdc1 is also used for VCC-IO. On A83T
 	  dcdc1 is used for VCC-IO, nand, usb0, sd , etc. On A80 dcdc1 normally
 	  powers some of the pingroups, NAND/eMMC, SD/MMC, and USB OTG.
+	  On AXP333 boards DCDC1 supplies the core. SPL supports its
+	  500-1200 mV linear range.
 
 config AXP_DCDC2_VOLT
 	int "axp pmic dcdc2 voltage"
-	depends on AXP152_POWER || AXP209_POWER || AXP221_POWER || AXP809_POWER || AXP818_POWER || AXP313_POWER || AXP717_POWER || AXP803_POWER
+	depends on AXP152_POWER || AXP209_POWER || AXP221_POWER || AXP809_POWER || AXP818_POWER || AXP313_POWER || AXP333_POWER || AXP717_POWER || AXP803_POWER
+	range 500 1840 if AXP333_POWER
+	default 1500 if AXP333_POWER
 	default 900 if AXP818_POWER
 	default 1400 if AXP152_POWER || AXP209_POWER
 	default 1000 if AXP313_POWER
@@ -213,6 +228,8 @@ config AXP_DCDC2_VOLT
 	  On A83T boards dcdc2 is used for VDD-CPUA(cluster 0) and should be 0.9V.
 	  On R40 boards dcdc2 is VDD-CPU and should be 1.1V
 	  On boards using the AXP313 or AXP717 it's often VDD-CPU.
+	  On Avaota F2 with AXP333, DCDC2 supplies DDR3 at 1.5V and must
+	  remain enabled.
 
 config AXP_DCDC3_VOLT
 	int "axp pmic dcdc3 voltage"
