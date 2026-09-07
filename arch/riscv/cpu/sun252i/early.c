@@ -83,3 +83,20 @@ void sun252i_v861_uart_init(void)
 	writel(UART_FCR_FIFO_EN | UART_FCR_CLEAR_RCVR | UART_FCR_CLEAR_XMIT,
 	       uart + 0x08);
 }
+
+void sun252i_v861_i2c2_init(void)
+{
+	void __iomem *bgr = (void *)(SUN252I_V861_CCU_BASE + 0x91c);
+
+	/* Release the retained PL pin state before selecting TWI2. */
+	if (!(readl((void *)0x07090238) & BIT(0)))
+		writel(BIT(0) | BIT(1) | BIT(2) | BIT(5), (void *)0x07090240);
+	/* PL belongs to the separate always-on PIO bank. */
+	sunxi_gpio_set_cfgpin(SUNXI_GPL(3), SUN252I_V861_GPL_TWI2);
+	sunxi_gpio_set_cfgpin(SUNXI_GPL(4), SUN252I_V861_GPL_TWI2);
+	sunxi_gpio_set_pull(SUNXI_GPL(3), SUNXI_GPIO_PULL_UP);
+	sunxi_gpio_set_pull(SUNXI_GPL(4), SUNXI_GPIO_PULL_UP);
+	clrbits_le32(bgr, BIT(18));
+	udelay(10);
+	setbits_le32(bgr, BIT(18) | BIT(2));
+}
