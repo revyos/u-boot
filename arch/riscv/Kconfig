@@ -377,6 +377,13 @@ config RISCV_ISA_ZICBOM
 	bool "Zicbom support"
 	depends on !SYS_DISABLE_DCACHE_OPS
 
+config SPL_RISCV_ISA_ZICBOM
+	bool "Zicbom support in SPL"
+	depends on SPL && RISCV_ISA_ZICBOM
+	help
+	  Read the cache-block size from the CPU device tree in SPL so that
+	  standard cache-management operations can be used before DMA.
+
 config DMA_ADDR_T_64BIT
 	bool
 	default y if 64BIT
