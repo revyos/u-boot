@@ -21,9 +21,9 @@
  */
 struct sandbox_i2c_pmic_plat_data {
 	u8 rw_reg, rw_idx;
-	u8 reg_count;
+	uint reg_count;
 	u8 trans_len;
-	u8 buf_size;
+	uint buf_size;
 	u8 *reg;
 };
 
