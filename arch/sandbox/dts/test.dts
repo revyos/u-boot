@@ -1030,11 +1030,60 @@
 			emul_pmbus: emul-pmbus {
 				compatible = "sandbox,i2c-pmbus";
 			};
+
+			emul_axp333: emul-axp333 {
+				compatible = "sandbox,i2c-pmic";
+				reg-defaults = [
+					00 00 00 4a 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+				];
+			};
 		};
 
 		sandbox_pmic: sandbox_pmic@40 {
 			reg = <0x40>;
 			sandbox,emul = <&emul_pmic0>;
+		};
+
+		axp333: pmic@36 {
+			compatible = "x-powers,axp333";
+			reg = <0x36>;
+			sandbox,emul = <&emul_axp333>;
+
+			regulators {
+				dcdc1 {
+					regulator-name = "axp333-test-dcdc1";
+				};
+				dcdc2 {
+					regulator-name = "axp333-test-dcdc2";
+				};
+				dcdc3 {
+					regulator-name = "axp333-test-dcdc3";
+				};
+				aldo1 {
+					regulator-name = "axp333-test-aldo1";
+				};
+				aldo2 {
+					regulator-name = "axp333-test-aldo2";
+				};
+				rtc-ldo {
+					regulator-name = "axp333-test-rtc";
+				};
+			};
 		};
 
 		mc34708: pmic@41 {
