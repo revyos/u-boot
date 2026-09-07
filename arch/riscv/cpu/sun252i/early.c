@@ -11,6 +11,7 @@
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
+#include <linux/iopoll.h>
 #include <asm/arch/clock.h>
 
 #define SUN252I_V861_UART_BGR	(SUN252I_V861_CCU_BASE + 0x90c)
@@ -29,6 +30,43 @@
 #define SUN252I_V861_SPIF_CLK_SOURCE	GENMASK(26, 24)
 #define SUN252I_V861_SPIF_CLK_N	GENMASK(9, 8)
 #define SUN252I_V861_SPIF_CLK_M	GENMASK(3, 0)
+
+int sun252i_v861_cpu_set_clock(unsigned int rate)
+{
+	void __iomem *pll = (void *)SUN252I_V861_CCU_BASE;
+	void __iomem *clock = (void *)(SUN252I_V861_CCU_BASE + 0x500);
+	u32 value;
+	int ret;
+
+	if (rate < 24000000 || rate > 1008000000 || rate % 24000000)
+		return -EINVAL;
+
+	/* Run from HOSC while reprogramming the CPU PLL. */
+	clrbits_le32(clock, GENMASK(26, 24));
+	udelay(1);
+	clrbits_le32(pll, SUN252I_V861_PLL_OUTPUT);
+	setbits_le32(pll, SUN252I_V861_PLL_LDO_ENABLE);
+	udelay(5);
+	clrsetbits_le32(pll, GENMASK(18, 16) | SUN252I_V861_PLL_N |
+			    GENMASK(3, 0),
+			    FIELD_PREP(SUN252I_V861_PLL_N, rate / 24000000));
+	setbits_le32(pll, SUN252I_V861_PLL_LOCK_ENABLE);
+	setbits_le32(pll, BIT(26)); /* Latch the PLL factors. */
+	setbits_le32(pll, SUN252I_V861_PLL_ENABLE);
+	ret = readl_poll_timeout(pll, value, value & SUN252I_V861_PLL_LOCK,
+				 10000);
+	if (ret)
+		return ret;
+	udelay(20);
+	setbits_le32(pll, SUN252I_V861_PLL_OUTPUT);
+	clrbits_le32(pll, SUN252I_V861_PLL_LOCK_ENABLE);
+	udelay(1);
+	/* Select PLL_CPU without an additional output divider. */
+	clrsetbits_le32(clock, GENMASK(26, 24) | GENMASK(17, 16),
+			FIELD_PREP(GENMASK(26, 24), 3));
+	udelay(1);
+	return 0;
+}
 
 void sun252i_v861_spif_disable(void)
 {

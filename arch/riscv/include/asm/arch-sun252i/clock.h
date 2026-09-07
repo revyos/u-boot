@@ -14,5 +14,6 @@
 #define CCM_MMC_CTRL_SCLK_DLY(x) 0
 
 int sun252i_v861_peri400m_rate(unsigned int *rate);
+int sun252i_v861_cpu_set_clock(unsigned int rate);
 
 #endif

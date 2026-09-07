@@ -24,6 +24,9 @@ config DRAM_CLK
 	int
 	default 1056
 
+config SYS_CLK_FREQ
+	default 1008000000
+
 config DRAM_ZQ
 	int
 	default 8088571
