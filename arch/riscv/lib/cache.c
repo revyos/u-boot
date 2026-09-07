@@ -28,19 +28,19 @@ static int zicbom_block_size;
 extern unsigned int riscv_get_cbom_block_size(void);
 static inline void do_cbo_clean(unsigned long base)
 {
-	asm volatile ("add a0, %0, zero\n" CBO_CLEAN(%0) ::
+	asm volatile (CBO_CLEAN(%0) ::
 		      "r"(base) : "memory");
 }
 
 static inline void do_cbo_flush(unsigned long base)
 {
-	asm volatile ("add a0, %0, zero\n" CBO_FLUSH(%0) ::
+	asm volatile (CBO_FLUSH(%0) ::
 		      "r"(base) : "memory");
 }
 
 static inline void do_cbo_inval(unsigned long base)
 {
-	asm volatile ("add a0, %0, zero\n" CBO_INVAL(%0) ::
+	asm volatile (CBO_INVAL(%0) ::
 		      "r"(base) : "memory");
 }
 
