@@ -3,14 +3,18 @@
 
 Allwinner SoC based boards
 ==========================
-For boards using an Allwinner ARM based SoC ("sunxi"), the U-Boot build
-system generates a single integrated image file: ``u-boot-sunxi-with-spl.bin.``
+Allwinner SoCs ("sunxi") include both ARM and RISC-V platforms. The required
+firmware and boot image depend on the SoC. Host build dependencies are
+described in :doc:`../../build/gcc`.
+
+For ARM-based sunxi boards, the U-Boot build system generates a single
+integrated image file: ``u-boot-sunxi-with-spl.bin``.
 This file can be used on SD cards, eMMC devices, SPI flash and for the
 USB-OTG based boot method (FEL). To build this file:
 
-* For 64-bit SoCs, build Trusted Firmware (TF-A, formerly known as ATF) first,
+* For 64-bit ARM SoCs, build Trusted Firmware (TF-A, formerly known as ATF) first,
   you will need its ``bl31.bin``. See below for more details.
-* Optionally on 64-bit SoCs, build the `crust`_ management processor firmware,
+* Optionally on 64-bit ARM SoCs, build the `crust`_ management processor firmware,
   you will need its ``scp.bin``. See below for more details.
 * Build U-Boot::
 
@@ -32,10 +36,12 @@ USB-OTG based boot method (FEL). To build this file:
   is beyond even a GPT and thus a safer location.
 
 For more details, and alternative boot locations or installations, see below.
+For RISC-V V861/V881 boards, follow the OpenSBI build instructions and the
+:ref:`sunxi-v861-spi` instructions below instead of the ARM quick start.
 
 Building Arm Trusted Firmware (TF-A)
 ------------------------------------
-Boards using a 64-bit Soc (A64, H5, H6, H616, R329) require the BL31 stage of
+Boards using a 64-bit ARM SoC (A64, H5, H6, H616, R329) require the BL31 stage of
 the `Arm Trusted Firmware-A`_ firmware. This provides the reference
 implementation of secure software for Armv8-A, offering PSCI and SMCCC
 services. Allwinner support is fully mainlined. To build bl31.bin::
@@ -52,6 +58,42 @@ sun50i_h6, for the H616 sun50i_h616, and for the R329 sun50i_r329. Use::
 
 to find all supported platforms. TF-A's `docs/plat/allwinner.rst`_ contains
 more information and lists some build options.
+
+Building OpenSBI
+----------------
+The V861/V881 (sun252i) sunxi SoCs start on an E907 core. A stackless
+handoff embedded in the SPL entry header releases the C907, which runs
+SPL and OpenSBI before entering U-Boot in supervisor mode. The C907 supports
+both RV32 and RV64; the E907 handoff always uses RV32 instructions. Normal
+builds do not compile a separate E907 executable; the reference assembly
+in ``arch/riscv/cpu/sun252i/e907_switch.S`` describes how to regenerate
+the embedded instruction words.
+
+Use a RISC-V GNU toolchain supporting RV32 and the ILP32D ABI, including
+the required runtime libraries. A ``riscv64-`` prefix is also suitable if
+these capabilities are available. The linker must support PIE, which
+some bare-metal toolchains do not support. Set the compiler prefix::
+
+    $ export CROSS_COMPILE=riscv32-unknown-linux-gnu-
+
+Use an OpenSBI source tree containing V861/V881 support and build its
+generic platform without a board-specific defconfig::
+
+    $ make -C /path/to/opensbi O=/path/to/opensbi-out \
+        CROSS_COMPILE="$CROSS_COMPILE" PLATFORM=generic \
+        PLATFORM_RISCV_XLEN=32 PLATFORM_RISCV_ABI=ilp32d \
+        PLATFORM_RISCV_ISA=rv32imafdc_zicsr_zifencei
+    $ export OPENSBI=/path/to/opensbi-out/platform/generic/firmware/fw_dynamic.bin
+
+Leave ``FW_TEXT_START`` at its default link address of ``0x0``. OpenSBI
+relocates itself to the runtime address specified by the FIT image;
+there is no need to repeat that address in the OpenSBI build command.
+Use ``fw_dynamic.bin``, not ``fw_jump.bin`` or ``fw_payload.bin``.
+
+For RV64, use a toolchain with RV64 runtime libraries and build OpenSBI with
+``PLATFORM_RISCV_XLEN=64``, ``PLATFORM_RISCV_ABI=lp64d`` and
+``PLATFORM_RISCV_ISA=rv64imafdc_zicsr_zifencei``. The OpenSBI firmware must
+match the execution width selected for the C907 SPL and U-Boot.
 
 Building the Crust management processor firmware
 ------------------------------------------------
@@ -91,7 +133,7 @@ file, and build the image::
     $ make <yourboard>_defconfig
     $ make
 
-For 64-bit boards, this requires either the BL31 environment variable to be
+For 64-bit ARM boards, this requires either the BL31 environment variable to be
 set (as shown above in the TF-A build example), or it to be supplied on the
 build command line::
 
@@ -99,8 +141,27 @@ build command line::
 
 The same applies to the (optional) SCP firmware.
 
-The file containing everything you need is called ``u-boot-sunxi-with-spl.bin``,
-you will find it in the root folder of your U-Boot (build) tree. Except for
+For Avaota F2 (V861/V881), use ``avaota_f2_defconfig`` and set ``OPENSBI``
+as described above. The build generates ``u-boot-sunxi-with-spl.bin``, containing
+SPL with its E907 handoff, OpenSBI, U-Boot and the device tree. When using
+``O=<build-directory>``, the image is placed in that directory.
+
+The defconfig defaults to RV32. To build RV64, select ``RV64I`` in the
+``Base ISA`` menu, or change the existing Kconfig choice before building::
+
+    $ make O=build-rv64 avaota_f2_defconfig
+    $ scripts/config --file build-rv64/.config \
+        --disable ARCH_RV32I --enable ARCH_RV64I
+    $ make O=build-rv64 olddefconfig
+    $ make O=build-rv64 CROSS_COMPILE=riscv64-linux-gnu- OPENSBI=/path/to/rv64/fw_dynamic.bin
+
+Use separate output directories for the two widths. The selected ISA also
+controls the C907 reset mode and the CPU execution-width/MMU properties in
+the firmware device tree. No RV64 instructions are added to the E907 stub.
+
+For ARM-based boards, the file containing everything you need is called
+``u-boot-sunxi-with-spl.bin`` and is placed in the root folder of the U-Boot
+(build) tree. Except for
 raw NAND flash devices this very same file can be used for any boot source.
 It will contain the SPL image, fitted with the proper signature recognised by
 the BROM, and the required checksum. Also it will contain at least U-Boot
@@ -114,7 +175,8 @@ Installing U-Boot
 
 Installing on a (micro-) SD card
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-All Allwinner SoCs will try to find a boot image at sector 16 (8KB) of
+These SD installation instructions apply to ARM-based sunxi boards.
+Their BootROM will try to find a boot image at sector 16 (8KB) of
 an SD card, connected to the first MMC controller. To transfer the generated
 image to an SD card, from any Linux device (including the board itself) with
 an (micro-)SD card reader, type::
@@ -143,6 +205,7 @@ To use the alternative boot location on newer SoCs::
 
 Installing on eMMC (on-board flash memory)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+These eMMC installation instructions apply to ARM-based sunxi boards.
 Some boards have a soldered eMMC chip, some other boards have an eMMC socket
 to receive an optional eMMC module. U-Boot can be installed to those chips,
 to boot without an SD card inserted. The Boot-ROM can boot either from the
@@ -256,6 +319,24 @@ the SPI flash content from Linux, using the `MTD utils`_::
 ``/dev/mtdX`` needs to be replaced with the respective device name, as listed
 in the output of ``mtdinfo``.
 
+.. _sunxi-v861-spi:
+
+V861/V881 SPI NOR image
+```````````````````````
+For Avaota F2, write ``u-boot-sunxi-with-spl.bin`` at SPI NOR offset zero. The
+image contains the eGON header and SPL, followed at offset ``0x20000`` by
+a FIT containing OpenSBI, U-Boot and the device tree. The raw
+``u-boot.bin`` and standalone FIT cannot replace this combined image.
+
+With an xfel build supporting the V861/V881 SPIF controller, enter FEL
+mode and program the image using::
+
+    $ xfel spinor write 0 u-boot-sunxi-with-spl.bin
+
+The SPL in this configuration loads from SPI NOR. SD support in U-Boot
+does not imply that this image supports SD BootROM boot. The
+``sunxi-fel`` commands below describe the ARM sunxi boot flow.
+
 Installing on SPI flash from U-Boot
 ```````````````````````````````````
 If SPI flash driver and command support (``CONFIG_CMD_SF``) is enabled in the
@@ -275,6 +356,9 @@ with the sunxi-fel utility, via an USB(-OTG) cable from any USB host machine::
 
 Booting via the USB(-OTG) FEL mode
 ----------------------------------
+The host commands in this section apply to ARM-based sunxi boards; for
+V861/V881 SPI NOR programming, see :ref:`sunxi-v861-spi`.
+
 If none of the boot locations checked by the BROM contains a medium or valid
 signature, the BROM will enter the so-called FEL mode, in which it will
 listen to commands from a host on the SoC's USB-OTG interface. Those commands
