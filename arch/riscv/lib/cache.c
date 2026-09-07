@@ -6,6 +6,8 @@
 
 #include <cpu_func.h>
 #include <dm.h>
+#include <asm/barrier.h>
+#include <asm/cache.h>
 #include <asm/insn-def.h>
 #include <linux/const.h>
 #include <linux/errno.h>
@@ -25,7 +27,6 @@ enum {
 	CBO_INVAL
 } riscv_cbo_ops;
 static int zicbom_block_size;
-extern unsigned int riscv_get_cbom_block_size(void);
 static inline void do_cbo_clean(unsigned long base)
 {
 	asm volatile (CBO_CLEAN(%0) ::
@@ -69,12 +70,16 @@ static void cbo_op(int op_type, unsigned long start,
 	}
 	start &= ~block_mask;
 	last = (end - 1) & ~block_mask;
+	/* Complete preceding accesses before changing cache ownership. */
+	mb();
 	for (;;) {
 		fn(start);
 		if (start == last)
 			break;
 		start += zicbom_block_size;
 	}
+	/* Order maintenance before later CPU accesses or device doorbells. */
+	mb();
 }
 
 void cbo_flush(unsigned long start, unsigned long end)

@@ -9,6 +9,7 @@
 
 /* cache */
 void cache_flush(void);
+unsigned int riscv_get_cbom_block_size(void);
 
 /*
  * The current upper bound for RISCV L1 data cache line sizes is 32 bytes.
