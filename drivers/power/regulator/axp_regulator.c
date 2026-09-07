@@ -13,6 +13,13 @@
 
 #define NA 0xff
 
+struct axp_regulator_range {
+	u16 min_mV;
+	u8 min_sel;
+	u8 max_sel;
+	u8 step_mV;
+};
+
 struct axp_regulator_plat {
 	const char	*name;
 	u8		enable_reg;
@@ -24,15 +31,18 @@ struct axp_regulator_plat {
 	u8		step_mV;
 	u8		split;
 	const u16	*table;
+	const struct axp_regulator_range *ranges;
+	u8		num_ranges;
 };
 
 static int axp_regulator_get_value(struct udevice *dev)
 {
 	const struct axp_regulator_plat *plat = dev_get_plat(dev);
-	int mV, sel;
+	int mV, sel, i;
 
 	if (plat->volt_reg == NA)
-		return -EINVAL;
+		return plat->enable_reg == NA && plat->min_mV == plat->max_mV ?
+			plat->min_mV * 1000 : -EINVAL;
 
 	sel = pmic_reg_read(dev->parent, plat->volt_reg);
 	if (sel < 0)
@@ -41,7 +51,16 @@ static int axp_regulator_get_value(struct udevice *dev)
 	sel &= plat->volt_mask;
 	sel >>= ffs(plat->volt_mask) - 1;
 
-	if (plat->table) {
+	if (plat->ranges) {
+		for (i = 0; i < plat->num_ranges; i++) {
+			const struct axp_regulator_range *range = &plat->ranges[i];
+
+			if (sel >= range->min_sel && sel <= range->max_sel)
+				return (range->min_mV + (sel - range->min_sel) *
+					range->step_mV) * 1000;
+		}
+		return -EINVAL;
+	} else if (plat->table) {
 		mV = plat->table[sel];
 	} else {
 		if (sel > plat->split)
@@ -57,15 +76,32 @@ static int axp_regulator_set_value(struct udevice *dev, int uV)
 	const struct axp_regulator_plat *plat = dev_get_plat(dev);
 	int mV = uV / 1000;
 	uint sel, shift;
+	int i;
 
 	if (plat->volt_reg == NA)
-		return -EINVAL;
+		return plat->enable_reg == NA && plat->min_mV == plat->max_mV &&
+			uV == plat->min_mV * 1000 ? 0 : -EINVAL;
 	if (mV < plat->min_mV || mV > plat->max_mV)
 		return -EINVAL;
 
 	shift = ffs(plat->volt_mask) - 1;
 
-	if (plat->table) {
+	if (plat->ranges) {
+		/* Do not silently round across gaps or below a supply constraint. */
+		for (i = 0; i < plat->num_ranges; i++) {
+			const struct axp_regulator_range *range = &plat->ranges[i];
+			int offset = uV - range->min_mV * 1000;
+			int step = range->step_mV * 1000;
+
+			if (offset < 0 || offset % step)
+				continue;
+			sel = range->min_sel + offset / step;
+			if (sel <= range->max_sel)
+				break;
+		}
+		if (i == plat->num_ranges)
+			return -EINVAL;
+	} else if (plat->table) {
 		/*
 		 * The table must be monotonically increasing and
 		 * have an entry for each possible field value.
@@ -88,6 +124,9 @@ static int axp_regulator_get_enable(struct udevice *dev)
 	const struct axp_regulator_plat *plat = dev_get_plat(dev);
 	int reg;
 
+	if (plat->enable_reg == NA)
+		return 1;
+
 	reg = pmic_reg_read(dev->parent, plat->enable_reg);
 	if (reg < 0)
 		return reg;
@@ -98,6 +137,9 @@ static int axp_regulator_get_enable(struct udevice *dev)
 static int axp_regulator_set_enable(struct udevice *dev, bool enable)
 {
 	const struct axp_regulator_plat *plat = dev_get_plat(dev);
+
+	if (plat->enable_reg == NA)
+		return enable ? 0 : -EOPNOTSUPP;
 
 	return pmic_clrsetbits(dev->parent, plat->enable_reg,
 			       plat->enable_mask,
